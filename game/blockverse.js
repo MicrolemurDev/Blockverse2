@@ -439,12 +439,12 @@ function MineKhan() {
 		}
 	})()
 
-	let win = window.parent
-	let doc = document
-	let console = win.console
-	let world
+	let win = window.parent;
+	let doc = document;
+	let console = win.console;
+	let world;
 
-	let seedHash
+	let seedHash;
 	let hash = (function() {
 		let seed = Math.random() * 2100000000 | 0
 		let PRIME32_2 = 1883677709
@@ -494,12 +494,15 @@ function MineKhan() {
 			let i = nextInt() / 4294967296
 			return i < 0 ? 1 + i : i
 		}
+    
 		this.nextInt = nextInt
 	}
-	let randomSeed = function(seed) {
+  
+	function randomSeed(seed) {
 		currentRandom = (new Marsaglia(seed)).nextDouble
 	}
-	let random = function(min, max) {
+  
+	function random(min, max) {
 		if (!max) {
 			if (min) {
 				max = min
@@ -511,7 +514,8 @@ function MineKhan() {
 		}
 		return currentRandom() * (max - min) + min
 	}
-	let noiseProfile = { generator: undefined, octaves: 4, fallout: 0.5, seed: undefined }
+  
+	const noiseProfile = { generator: undefined, octaves: 4, fallout: 0.5, seed: undefined }
 	function PerlinNoise(seed) {
 		let rnd = seed !== undefined ? new Marsaglia(seed) : Marsaglia.createRandomized()
 		let i, j
@@ -933,16 +937,16 @@ function MineKhan() {
 	let blockOutlines = false
 	let blockFill = true
 	let updateHUD = true
-	const CUBE     = 0
-	const SLAB     = 0x100 // 9th bit
-	const STAIR    = 0x200 // 10th bit
-	const FLIP     = 0x400 // 11th bit
-	const NORTH    = 0 // 12th and 13th bits for the 4 directions
-	const SOUTH    = 0x800
-	const EAST     = 0x1000
-	const WEST     = 0x1800
-	const ROTATION = 0x1800 // Mask for the direction bits
-	let blockMode  = CUBE
+	const CUBE     = 0;
+	const SLAB     = 0x100; // 9th bit
+	const STAIR    = 0x200; // 10th bit
+	const FLIP     = 0x400; // 11th bit
+	const NORTH    = 0; // 12th and 13th bits for the 4 directions
+	const SOUTH    = 0x800;
+	const EAST     = 0x1000;
+	const WEST     = 0x1800;
+	const ROTATION = 0x1800; // Mask for the direction bits
+	let blockMode  = CUBE;
 	let tex
 	let textureMap
 	let dirtBuffer
@@ -1097,6 +1101,7 @@ function MineKhan() {
 			canvas.requestPointerLock()
 		}
 	}
+  
 	function releasePointer() {
 		if (doc.exitPointerLock) {
 			doc.exitPointerLock()
@@ -2537,6 +2542,7 @@ function MineKhan() {
 			}
 		}
 	}
+  
 	function block2(x, y, z, t, camera) {
 		if (camera) {
 			camera.transformation.translate(x, y, z)
@@ -2580,10 +2586,12 @@ function MineKhan() {
 			}
 		}
 	}
+  
 	function newWorldBlock() {
 		if(!hitBox.pos || !holding) {
 			return
 		}
+    
 		let pos = hitBox.pos, x= pos[0], y = pos[1], z = pos[2]
 		switch(hitBox.face) {
 			case "top":
@@ -2605,6 +2613,7 @@ function MineKhan() {
 				x += 1
 				break
 		}
+    
 		if (!inBox(x, y, z, 1, 1, 1) && !world.getBlock(x, y, z)) {
 			pos[0] = x
 			pos[1] = y
@@ -2637,12 +2646,13 @@ function MineKhan() {
 		// Overlay them on top of each other, and the overlapping parts should form a cave-like structure.
 		// This is extremely slow, and requires generating 2 noise values for every single block in the world.
 		// TODO: replace with a crawler system of some sort, that will never rely on a head position in un-generated chunks.
-		let smooth = 0.02
-		let caveSize = 0.0055
+		const smooth = 0.02;
+		const caveSize = 0.006;
 		let cave1 = Math.abs(0.5 - caveNoise(x * smooth, y * smooth, z * smooth)) < caveSize
 		let cave2 = Math.abs(0.5 - caveNoise(y * smooth, z * smooth, x * smooth)) < caveSize
 		return (cave1 && cave2)
 	}
+
 	function carveSphere(x, y, z) {
 		if (y > 3) {
 			for (let i = 0; i < sphere.length; i += 3) {
@@ -3096,18 +3106,23 @@ function MineKhan() {
 			this.lazy = false
 			this.edited = false
 			this.loaded = false
-			this.caves = !caves
+			this.caves = !caves;
+
+      this.vao = gl.createVertexArray(); // Backporting optimization is fun
 		}
+    
 		getBlock(x, y, z) {
 			let s = y >> 4
 			return this.sections.length > s ? this.sections[s].getBlock(x, y & 15, z) : 0
 		}
+    
 		setBlock(x, y, z, blockID, hidden, user) {
 			if (!this.sections[y >> 4]) {
 				do {
 					this.sections.push(new Section(this.x, this.sections.length * 16, this.z, 16, this))
 				} while (!this.sections[y >> 4])
 			}
+      
 			if (user && !this.sections[y >> 4].edited) {
 				this.cleanSections[y >> 4] = this.sections[y >> 4].blocks.slice()
 				this.sections[y >> 4].edited = true
@@ -3115,6 +3130,7 @@ function MineKhan() {
 			}
 			this.sections[y >> 4].setBlock(x, y & 15, z, blockID, hidden)
 		}
+    
 		optimize() {
 			for (let i = 0; i < this.sections.length; i++) {
 				this.sections[i].optimize()
@@ -3124,19 +3140,21 @@ function MineKhan() {
 			}
 			this.optimized = true
 		}
+    
 		render() {
 			if (!this.buffer) {
-				return
+				return;
 			}
+      
 			if (p.canSee(this.x, this.minY, this.z, this.maxY)) {
 				renderedChunks++
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
-				gl.vertexAttribPointer(glCache.aVertex, 3, gl.FLOAT, false, 24, 0)
-				gl.vertexAttribPointer(glCache.aTexture, 2, gl.FLOAT, false, 24, 12)
-				gl.vertexAttribPointer(glCache.aShadow, 1, gl.FLOAT, false, 24, 20)
-				gl.drawElements(gl.TRIANGLES, 6 * this.faces, gl.UNSIGNED_INT, 0)
+				gl.bindVertexArray(this.vao);
+				gl.drawElements(gl.TRIANGLES, 6 * this.faces, gl.UNSIGNED_INT, 0);
+        gl.bindVertexArray(null);
 			}
 		}
+    
 		updateBlock(x, y, z, world, lazy) {
 			if (this.buffer) {
 				this.lazy = lazy
@@ -3144,7 +3162,10 @@ function MineKhan() {
 					this.sections[y >> 4].updateBlock(x, y & 15, z, world)
 				}
 			}
+
+
 		}
+    
 		deleteBlock(x, y, z, user) {
 			if (!this.sections[y >> 4]) {
 				return
@@ -3310,6 +3331,7 @@ function MineKhan() {
 
 			this.populated = true
 		}
+    
 		genMesh() {
 			let start = win.performance.now()
 			let barray = bigArray
@@ -3335,8 +3357,17 @@ function MineKhan() {
 			this.maxY = maxY
 			this.minY = minY
 			this.faces = data.length / 24
+			gl.bindVertexArray(this.vao);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
 			gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+			gl.vertexAttribPointer(glCache.aVertex, 3, gl.FLOAT, false, 24, 0)
+			gl.enableVertexAttribArray(glCache.aVertex)
+			gl.vertexAttribPointer(glCache.aTexture, 2, gl.FLOAT, false, 24, 12)
+			gl.enableVertexAttribArray(glCache.aTexture)
+			gl.vertexAttribPointer(glCache.aShadow, 1, gl.FLOAT, false, 24, 20)
+			gl.enableVertexAttribArray(glCache.aShadow)
+			gl.bindVertexArray(null);
 			this.lazy = false
 		}
 		tick() {
@@ -4383,7 +4414,7 @@ function MineKhan() {
 		gl.bindTexture(gl.TEXTURE_2D, tex)
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, textureSize, textureSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, texturePixels)
 		gl.generateMipmap(gl.TEXTURE_2D)
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
@@ -4895,14 +4926,14 @@ function MineKhan() {
 	}
 	function initWebgl() {
 		if (!win.gl) {
-			let canv = document.createElement('canvas')
+			const canv = document.createElement('canvas')
 			canv.width = ctx.canvas.width
 			canv.height = ctx.canvas.height
 			canv.style.position = "absolute"
 			canv.style.zIndex = -1
 			canv.style.top = "0px"
 			canv.style.left = "0px"
-			gl = canv.getContext("webgl2", { preserveDrawingBuffer: true, antialias: false, premultipliedAlpha: false, powerPreference: "high-performance", stencil: false })
+			gl = canv.getContext("webgl2", { preserveDrawingBuffer: true, antialias: false, premultipliedAlpha: false, powerPreference: "high-performance", stencil: false })//, depth: false })
       
 			gl.viewport(0, 0, canv.width, canv.height);
 			gl.enable(gl.DEPTH_TEST);
@@ -4961,12 +4992,12 @@ function MineKhan() {
 
 		//Bind the Vertex Array Object (VAO) that will be used to draw everything
 		indexBuffer = gl.createBuffer()
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexOrder, gl.STATIC_DRAW)
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexOrder, gl.STATIC_DRAW);
 
-		//Tell it not to render the insides of blocks
-		gl.enable(gl.CULL_FACE)
-		gl.cullFace(gl.BACK)
+		//Tell it not to render the back sides of blocks
+		gl.enable(gl.CULL_FACE);
+		gl.cullFace(gl.BACK);
 
 		gl.lineWidth(2)
 		blockOutlines = false
@@ -5049,7 +5080,7 @@ function MineKhan() {
 
 		// Dirt background
 		use2d()
-		let aspect = width / height
+		let aspect = width / height; // To-do: Replace this with an optimal algorithm!
 		let stack = height / 96
 		let bright = 0.4
 		if (dirtBuffer) {
