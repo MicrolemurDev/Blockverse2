@@ -86,7 +86,6 @@ window.canvas = document.getElementById("overlay")
 window.ctx = canvas.getContext("2d")
 window.savebox = document.getElementById("savebox")
 window.boxCenterTop = document.getElementById("boxcentertop")
-window.saveDirections = document.getElementById("savedirections")
 window.message = document.getElementById("message")
 window.worlds = document.getElementById("worlds")
 window.quota = document.getElementById("quota")
@@ -539,16 +538,16 @@ function MineKhan() {
 			let h = i & 15; // convert into 12 gradient directions
 			let u = h<8 ? x : y,
 				v = h<4 ? y : h===12||h===14 ? x : z
-			return ((h&1) === 0 ? u : -u) + ((h&2) === 0 ? v : -v)
+			return (!(h&1) ? u : -u) + (!(h&2) ? v : -v)
 		}
 
 		function grad2d(i,x,y) {
-			let v = (i & 1) === 0 ? x : y
-			return (i&2) === 0 ? -v : v
+			let v = !(i & 1) ? x : y
+			return !(i&2) ? -v : v
 		}
 
 		function grad1d(i,x) {
-			return (i&1) === 0 ? -x : x
+			return !(i&1) ? -x : x
 		}
 
 		function lerp(t,a,b) {
@@ -617,12 +616,12 @@ function MineKhan() {
 		const NORM_3D = 1.0 / 206.0
 		const SQUISH_3D = 1 / 3
 		const STRETCH_3D = -1 / 6
-		var base3D = toNums("0000110010101001,2110210120113111,110010101001211021012011")
+		let base3D = toNums("0000110010101001,2110210120113111,110010101001211021012011")
 		const gradients3D = decode(-11, 23, "0ff7mf7fmmfffmfffm07f70f77mm7ff0ff7m0f77m77f0mf7fm7ff0077707770m77f07f70")
-		var lookupPairs3D = function() { return new Uint16Array(toNumsB32("0,2,1,1,2,2,5,1,6,0,7,0,10,2,12,2,41,1,45,1,50,5,51,5,g6,0,g7,0,h2,4,h6,4,k5,3,k7,3,l0,5,l1,5,l2,4,l5,3,l6,4,l7,3,l8,d,l9,d,la,c,ld,e,le,c,lf,e,m8,k,ma,i,p9,l,pd,n,q8,k,q9,l,15e,j,15f,m,16a,i,16e,j,19d,n,19f,m,1a8,f,1a9,h,1aa,f,1ad,h,1ae,g,1af,g,1ag,b,1ah,a,1ai,b,1al,a,1am,9,1an,9,1bg,b,1bi,b,1eh,a,1el,a,1fg,8,1fh,8,1qm,9,1qn,9,1ri,7,1rm,7,1ul,6,1un,6,1vg,8,1vh,8,1vi,7,1vl,6,1vm,7,1vn,6")) }
-		var p3D = decode(-1, 5, "112011210110211120110121102132212220132122202131222022243214231243124213241324123222113311221213131221123113311112202311112022311112220342223113342223311342223131322023113322023311320223113320223131322203311322203131")
-		const setOf = function(count) { var a = [],i = 0; while (i < count) { a.push(i++) } return a }
-		const doFor = function(count, cb) { var i = 0; while (i < count && cb(i++) !== true) {} }
+		let lookupPairs3D = function() { return new Uint16Array(toNumsB32("0,2,1,1,2,2,5,1,6,0,7,0,10,2,12,2,41,1,45,1,50,5,51,5,g6,0,g7,0,h2,4,h6,4,k5,3,k7,3,l0,5,l1,5,l2,4,l5,3,l6,4,l7,3,l8,d,l9,d,la,c,ld,e,le,c,lf,e,m8,k,ma,i,p9,l,pd,n,q8,k,q9,l,15e,j,15f,m,16a,i,16e,j,19d,n,19f,m,1a8,f,1a9,h,1aa,f,1ad,h,1ae,g,1af,g,1ag,b,1ah,a,1ai,b,1al,a,1am,9,1an,9,1bg,b,1bi,b,1eh,a,1el,a,1fg,8,1fh,8,1qm,9,1qn,9,1ri,7,1rm,7,1ul,6,1un,6,1vg,8,1vh,8,1vi,7,1vl,6,1vm,7,1vn,6")) }
+		let p3D = decode(-1, 5, "112011210110211120110121102132212220132122202131222022243214231243124213241324123222113311221213131221123113311112202311112022311112220342223113342223311342223131322023113322023311320223113320223131322203311322203131")
+		const setOf = function(count) { let a = [],i = 0; while (i < count) { a.push(i++) } return a }
+		const doFor = function(count, cb) { let i = 0; while (i < count && cb(i++) !== true) {} }
 
 		function shuffleSeed(seed,count){
 			seed = seed * 1664525 + 1013904223 | 0
@@ -640,7 +639,7 @@ function MineKhan() {
 		}
 
 		function createContribution(type, baseSet, index) {
-			var i = 0
+			let i = 0
 			const multiplier = baseSet[index ++]
 			const c = { next : undefined }
 			while(i < type.dimensions) {
@@ -652,7 +651,7 @@ function MineKhan() {
 		}
 
 		function createLookupPairs(lookupArray, contributions){
-			var i
+			let i
 			const a = lookupArray()
 			const res = new Map()
 			for (i = 0; i < a.length; i += 2) { res.set(a[i], contributions[a[i + 1]]); }
@@ -663,7 +662,7 @@ function MineKhan() {
 			const conts = []
 			const d = type.dimensions
 			const baseStep = d * d
-			var k, i = 0
+			let k, i = 0
 			while (i < type.pD.length) {
 				const baseSet = type.base[type.pD[i]]
 				let previous, current
@@ -692,11 +691,11 @@ function MineKhan() {
 		const perm = new Uint8Array(256)
 		const perm3D = new Uint8Array(256)
 		const source = new Uint8Array(setOf(256))
-		var seed = shuffleSeed(clientSeed, 3)
+		let seed = shuffleSeed(clientSeed, 3)
 		doFor(256, function(i) {
 			i = 255 - i
 			seed = shuffleSeed(seed, 1)
-			var r = (seed + 31) % (i + 1)
+			let r = (seed + 31) % (i + 1)
 			r += r < 0 ? i + 1 : 0
 			perm[i] = source[r]
 			perm3D[i] = (perm[i] % 24) * 3
@@ -717,7 +716,7 @@ function MineKhan() {
 			const dx0 = x - (xsb + squishOffset), dy0 = y - (ysb + squishOffset), dz0 = z - (zsb + squishOffset)
 			const xins = xs - xsb, yins = ys - ysb, zins = zs - zsb
 			const inSum = xins + yins + zins
-			var c = lookup3D.get(
+			let c = lookup3D.get(
 				(yins - zins + 1) |
 				((xins - yins + 1) << 1) |
 				((xins - zins + 1) << 2) |
@@ -726,7 +725,7 @@ function MineKhan() {
 				((inSum + yins) << 7) |
 				((inSum + xins) << 9)
 			)
-			var i, value = 0
+			let i, value = 0
 			while (c !== undefined) {
 				const dx = dx0 + c.dx, dy = dy0 + c.dy, dz = dz0 + c.dz
 				let attn = 2 - dx * dx - dy * dy - dz * dz
@@ -773,21 +772,24 @@ function MineKhan() {
 			this.z *= m
 		}
 	}
-	let fill = function(r, g, b) {
-		if (g === undefined) {
+	function fill(r, g, b) {
+		if (!g) {
 			g = r
 			b = r
 		}
+
 		ctx.fillStyle = "rgb(" + r + ", " + g + ", " + b + ")"
 	}
 	function stroke(r, g, b) {
-		if (g === undefined) {
+		if (!g) {
 			g = r
 			b = r
 		}
+    
 		ctx.strokeStyle = "rgb(" + r + ", " + g + ", " + b + ")"
 	}
-	let line = function(x1, y1, x2, y2) {
+  
+	function line(x1, y1, x2, y2) {
 		ctx.moveTo(x1, y1)
 		ctx.lineTo(x2, y2)
 	}
@@ -799,18 +801,21 @@ function MineKhan() {
 			ctx.fillText(lines[i], x, y + h * i)
 		}
 	}
+  
 	function textSize(size) {
 		ctx.font = size + 'px Monospace' // VT323
 	}
-	let strokeWeight = function(num) {
+  
+	function strokeWeight(num) {
 		ctx.lineWidth = num
 	}
 	const ARROW = "arrow"
 	const HAND = "pointer"
 	const CROSS = "crosshair"
-	let cursor = function(type) {
+	function cursor(type) {
 		canvas.style.cursor = type
 	}
+  
 	randomSeed(Math.random() * 10000000 | 0)
 
 	async function createDatabase() {
@@ -836,6 +841,7 @@ function MineKhan() {
 			}
 		})
 	}
+  
 	async function loadFromDB(id) {
 		return await new Promise(async (resolve, reject) => {
 			let db = await createDatabase()
@@ -852,6 +858,7 @@ function MineKhan() {
 			}
 		})
 	}
+  
 	async function saveToDB(id, data) {
 		return new Promise(async (resolve, reject) => {
 			let db = await createDatabase()
@@ -866,6 +873,7 @@ function MineKhan() {
 			}
 		})
 	}
+  
 	async function deleteFromDB(id) {
 		return new Promise(async (resolve, reject) => {
 			let db = await createDatabase()
@@ -891,16 +899,10 @@ function MineKhan() {
 		}).then(() => world.edited = Date.now()).catch(e => console.error(e))
 	}
 
-	// Expose these functions to the global scope for debugging
-	win.saveToDB = saveToDB
-	win.loadFromDB = loadFromDB
-	win.createDatabase = createDatabase
-	win.deleteFromDB = deleteFromDB
-
 	//globals
 	//{
-	let version = "Alpha 0.7.1"
-	let reach = 5 // Max distance player can place or break blocks
+	const version = "INDEV_1";
+	const reach = 5 // Max distance player can place or break blocks
 	let sky = [0.33, 0.54, 0.72] // 0 to 1 RGB color scale
 	let superflat = false
 	let trees = true
@@ -928,7 +930,7 @@ function MineKhan() {
 
 	const generator = {
 		height: 192, // Height of the hills
-		smooth: 0.005, // Smoothness of the terrain
+		smooth: 0.006, // Smoothness of the terrain
 		extra: 30, // Extra height added to the world.
 		caveSize: 0.00 // Redefined right above where it's used
 	}
@@ -953,7 +955,7 @@ function MineKhan() {
 	let dirtTexture
 	let textureCoords
 	let texCoordsBuffers
-	let mainbg, dirtbg // Background images
+	let dirtbg // Background images
 	let bigArray = win.bigArray || new Float32Array(600000)
 	win.bigArray = bigArray
 
@@ -973,7 +975,7 @@ function MineKhan() {
 	let html = {
 		pause: {
 			enter: [window.message],
-			exit: [window.savebox, window.saveDirections, window.message]
+			exit: [window.savebox, window.message]
 		},
 		"loadsave menu": {
 			enter: [window.worlds, window.boxCenterTop, window.quota],
@@ -2427,7 +2429,7 @@ function MineKhan() {
 			p.canStepZ = true
 		}
 
-		var sneakLock = false, sneakSafe = false
+		let sneakLock = false, sneakSafe = false
 		if (p.sneaking) {
 			for (let i = 0; i < contacts.size; i++) {
 				block = contacts.array[i]
@@ -2758,6 +2760,7 @@ function MineKhan() {
 			ret[3] = this.shade[blocks[1] + blocks[2] + blocks[4] + blocks[5]]*0.95
 			return ret
 		},
+    
 		south: function(x, y, z, block) {
 			let blocks = this.blocks
 			let ret = this.ret
@@ -3435,7 +3438,7 @@ function MineKhan() {
 	}
 	function fillReqs(x, z) {
 		// Chunks must all be loaded first.
-		var done = true
+		let done = true
 		for (let i = x - 2; i <= x + 2; i++) {
 			for (let j = z - 2; j <= z + 2; j++) {
 				let chunk = world.loaded[(i + world.offsetX) * world.lwidth + j + world.offsetZ]
@@ -3613,12 +3616,12 @@ function MineKhan() {
 		}
 		spawnBlock(x, y, z, blockID) {
 			//Sets a block anywhere without causing block updates around it. Only to be used in world gen.
-
 			let chunkX = x >> 4
 			let chunkZ = z >> 4
 			if (!this.chunks[chunkX]) {
 				this.chunks[chunkX] = []
 			}
+      
 			let chunk = this.chunks[chunkX][chunkZ]
 			if (!chunk) {
 				chunk = new Chunk(chunkX * 16, chunkZ * 16)
@@ -4182,7 +4185,6 @@ function MineKhan() {
 	}
 	Button.all = []
 
-	var initEverything
 	function initButtons() {
 		Button.all = []
 		Slider.all = []
@@ -4307,12 +4309,7 @@ function MineKhan() {
 		Button.add(width / 2, 225, 300, 40, "Resume", "pause", play)
 		Button.add(width / 2, 275, 300, 40, "Options", "pause", r => changeScene("options"))
 		Button.add(width / 2, 325, 300, 40, "Save", "pause", save, nothing, () => `Save the world to your computer/browser. Doesn't work in incognito.\n\nLast saved ${timeString(Date.now() - world.edited)}.`)
-		Button.add(width / 2, 375, 300, 40, "Get Save Code", "pause", r => {
-			savebox.classList.remove("hidden")
-			saveDirections.classList.remove("hidden")
-			savebox.value = world.getSaveString()
-		})
-		Button.add(width / 2, 425, 300, 40, "Exit Without Saving", "pause", r => {
+		Button.add(width / 2, 375, 300, 40, "Exit Without Saving", "pause", r => {
 			savebox.value = world.getSaveString()
 			initWorldsMenu()
 			changeScene("main menu")
@@ -4355,15 +4352,13 @@ function MineKhan() {
 			texturePixels[offset + 3] = a !== undefined ? a : 255
 		}
 		getPixels = function(str) {
-			// var w = parseInt(str.substr(0, 2), 36)
-			// var h = parseInt(str.substr(2, 2), 36)
-			var colors = []
-			var pixels = []
-			var dCount = 0
+			let colors = []
+			let pixels = []
+			let dCount = 0
 			for (;str[4 + dCount] === "0"; dCount++) {}
-			var ccount = parseInt(str.substr(4+dCount, dCount+1), 36)
-			for (var i = 0; i < ccount; i++) {
-				var num = parseInt(str.substr(5 + 2*dCount + i * 7, 7), 36)
+			let ccount = parseInt(str.substr(4+dCount, dCount+1), 36)
+			for (let i = 0; i < ccount; i++) {
+				let num = parseInt(str.substr(5 + 2*dCount + i * 7, 7), 36)
 				colors.push([ num >>> 24 & 255, num >>> 16 & 255, num >>> 8 & 255, num & 255 ])
 			}
 			for (let i = 5 + 2*dCount + ccount * 7; i < str.length; i++) {
@@ -5066,17 +5061,7 @@ function MineKhan() {
 		gl.enableVertexAttribArray(glCache.aShadow)
 		let pixels = new Uint8Array(width * height * 4)
 		gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-		mainbg = ctx.createImageData(width, height)
 		let w = width * 4
-		for (let i = 0; i < pixels.length; i += 4) {
-			let x = i % w
-			let y = height - Math.floor(i / w) - 1
-			let j = y * w + x
-			mainbg.data[j] = pixels[i]
-			mainbg.data[j + 1] = pixels[i + 1]
-			mainbg.data[j + 2] = pixels[i + 2]
-			mainbg.data[j + 3] = pixels[i + 3]
-		}
 
 		// Dirt background
 		use2d()
@@ -5240,7 +5225,6 @@ function MineKhan() {
 	(function() {
 		function title() {
 			let title = "Blockverse 2"
-			let subtext = "WIP"
 			let font = "VT323,monospace"
 			strokeWeight(1)
 			ctx.textAlign = 'center'
@@ -5260,27 +5244,18 @@ function MineKhan() {
 			text(title, width / 2, 148)
 			fill(110)
 			text(title, width / 2, 145)
-
-			ctx.font = "bold 32px " + font
-			fill(50)
-			text(subtext, width / 2-1, 180)
-			text(subtext, width / 2+1, 180)
-			text(subtext, width / 2, 179)
-			text(subtext, width / 2, 181)
-			ctx.font = "bold 32px " + font
-			fill(150)
-			text(subtext, width / 2, 180)
 		}
+    
 		const clear = () => ctx.clearRect(0, 0, canvas.width, canvas.height)
 		const dirt = () => ctx.putImageData(dirtbg, 0, 0)
 
 		drawScreens["main menu"] = () => {
-			ctx.putImageData(mainbg, 0, 0)
-			title()
-			fill(220)
+			ctx.putImageData(dirtbg, 0, 0); // MAINBG DED!!! WHY!?!?!
+			title();
+			fill(220);
 			ctx.font = "20px VT323"
 			ctx.textAlign = 'left'
-			text("Minecraft " + version, width - (width - 2), height - 2)
+			text("Blockverse " + version, width - (width - 2), height - 2);
 		}
 
 		drawScreens.play = () => {
@@ -5345,7 +5320,7 @@ function MineKhan() {
 			fill(255)
 			textSize(30)
 			ctx.textAlign = "center"
-			text(`Loading... ${progress}% complete (${sub} / ${maxLoad})`, width / 2, height / 2)
+			text(`Loading... (${progress}%)`, width / 2, height / 2)
 		}
 
 		drawScreens.inventory = drawInv
@@ -5358,7 +5333,7 @@ function MineKhan() {
 			textSize(60)
 			fill(0, 0, 0)
 			ctx.textAlign = 'center'
-      fill(255, 255, 255);
+      fill(255);
 			text("Paused", width / 2, 60)
 		}
 
