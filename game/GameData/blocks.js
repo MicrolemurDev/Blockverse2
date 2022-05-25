@@ -1,0 +1,204 @@
+const blockData = [{
+    name: "air",
+    id: 0,
+    textures: [],
+    transparent: true,
+    shadow: false,
+}, {
+    name: "grass",
+    textures: ["dirt", "grassTop", "grassSide"],
+}, {
+    name: "dirt"
+}, {
+    name: "stone"
+}, {
+    name: "bedrock"
+}, {
+    name: "sand"
+}, {
+    name: "gravel"
+}, {
+    name: "leaves",
+    transparent: true,
+}, {
+    name: "glass",
+    transparent: true,
+    shadow: false,
+}, {
+    name: "cobblestone"
+}, {
+    name: "mossyCobble"
+}, {
+    name: "stoneBricks"
+}, {
+    name: "mossyStoneBricks"
+}, {
+    name: "bricks"
+}, {
+    name: "coalOre"
+}, {
+    name: "ironOre"
+}, {
+    name: "goldOre"
+}, {
+    name: "diamondOre"
+}, {
+    name: "redstoneOre"
+}, {
+    name: "lapisOre"
+}, {
+    name: "emeraldOre"
+}, {
+    name: "coalBlock"
+}, {
+    name: "ironBlock"
+}, {
+    name: "goldBlock"
+}, {
+    name: "diamondBlock"
+}, {
+    name: "redstoneBlock"
+}, {
+    name: "lapisBlock"
+}, {
+    name: "emeraldBlock"
+}, {
+    name: "oakPlanks"
+}, {
+    name: "oakLog",
+    textures: ["logTop", "logSide"],
+}, {
+    name: "acaciaPlanks"
+}, {
+    name: "acaciaLog",
+    textures: ["acaciaLogTop", "acaciaLogSide"],
+}, {
+    name: "birchPlanks"
+}, {
+    name: "birchLog",
+    textures: ["birchLogTop", "birchLogSide"],
+}, {
+    name: "darkOakPlanks"
+}, {
+    name: "darkOakLog",
+    textures: ["darkOakLogTop", "darkOakLogSide"],
+}, {
+    name: "junglePlanks"
+}, {
+    name: "jungleLog",
+    textures: ["jungleLogTop", "jungleLogSide"],
+}, {
+    name: "sprucePlanks"
+}, {
+    name: "spruceLog",
+    textures: ["spruceLogTop", "spruceLogSide"],
+}, {
+    name: "whiteWool"
+}, {
+    name: "orangeWool"
+}, {
+    name: "magentaWool"
+}, {
+    name: "lightBlueWool"
+}, {
+    name: "yellowWool"
+}, {
+    name: "limeWool"
+}, {
+    name: "pinkWool"
+}, {
+    name: "grayWool"
+}, {
+    name: "lightGrayWool"
+}, {
+    name: "cyanWool"
+}, {
+    name: "purpleWool"
+}, {
+    name: "blueWool"
+}, {
+    name: "brownWool"
+}, {
+    name: "greenWool"
+}, {
+    name: "redWool"
+}, {
+    name: "blackWool"
+}, {
+    name: "whiteConcrete"
+}, {
+    name: "orangeConcrete"
+}, {
+    name: "magentaConcrete"
+}, {
+    name: "lightBlueConcrete"
+}, {
+    name: "yellowConcrete"
+}, {
+    name: "limeConcrete"
+}, {
+    name: "pinkConcrete"
+}, {
+    name: "grayConcrete"
+}, {
+    name: "lightGrayConcrete"
+}, {
+    name: "cyanConcrete"
+}, {
+    name: "purpleConcrete"
+}, {
+    name: "blueConcrete"
+}, {
+    name: "brownConcrete"
+}, {
+    name: "greenConcrete"
+}, {
+    name: "redConcrete"
+}, {
+    name: "blackConcrete"
+}, {
+    name: "bookshelf",
+    textures: ["oakPlanks", "bookshelf"]
+}, {
+    name: "netherrack"
+}, {
+    name: "soulSand"
+}, {
+    name: "glowstone"
+}, {
+    name: "netherWartBlock"
+}, {
+    name: "netherBricks"
+}, {
+    name: "redNetherBricks"
+}, {
+    name: "netherQuartzOre"
+}, {
+    name: "quartzBlock",
+    textures: ["quartzBlockBottom", "quartzBlockTop", "quartzBlockSide"]
+}, {
+    name: "quartzPillar",
+    textures: ["quartzPillarTop", "quartzPillar"]
+}, {
+    name: "chiseledQuartzBlock",
+    textures: ["chiseledQuartzBlock", "chiseledQuartzBlockTop"]
+}, {
+    name: "chiseledStoneBricks"
+}, {
+    name: "smoothStone"
+}, {
+    name: "andesite"
+}, {
+    name: "polishedAndesite"
+}, {
+    name: "diorite"
+}, {
+    name: "polishedDiorite"
+}, {
+    name: "granite"
+}, {
+    name: "polishedGranite"
+}, ];
+
+// Exports
+export { blockData }
