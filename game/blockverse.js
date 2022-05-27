@@ -9,10 +9,12 @@ import { blockData } from './GameData/blocks.js';
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 
 // Error Manager
-window.onerror = function(msg, url, line) {
+window.onerror = function(msg, url, line, col) {
     document.body.innerHTML = `<h1>Error</h1>
                              <b>Error Given:</b> ${msg}<br>
-                             <b>Source:</b> Line ${line} (${url})`;
+                             <b>Source:</b> ${line}:${col} (${url})
+                             <br>
+                             <br>`;
     document.body.style = `background: rgb(0, 0, 255); 
                          color: white; 
                          font-family: monospace;`;
@@ -542,15 +544,13 @@ function save() {
 //{
 const version = "INDEV_2";
 const reach = 5 // Max distance player can place or break blocks
-let sky = [0.33, 0.54, 0.72] // 0 to 1 RGB color scale
+let sky = [0.33, 0.54, 0.72] // 0 to 1 RGB color scale (default data is [0.33, 0.54, 0.72])
 let superflat = false
 let trees = true
 let caves = true
 
 let blockIds = {}
 blockData.forEach(block => blockIds[block.name] = block.id)
-win.blockData = blockData
-win.blockIds = blockIds
 
 let currentFov
 
@@ -594,7 +594,7 @@ let dirtBuffer
 let dirtTexture
 let textureCoords
 let texCoordsBuffers
-let dirtbg // Background images
+let dirtbg // Background image
 let bigArray = win.bigArray || new Float32Array(600000)
 win.bigArray = bigArray
 
@@ -782,26 +782,26 @@ const Sides = {
 }
 
 // GLSL Tools (Builtin, modified from original code)
-function createProgramObject(curContext, vetexShaderSource, fragmentShaderSource) {
-    const vertexShaderObject = curContext.createShader(curContext.VERTEX_SHADER)
-    curContext.shaderSource(vertexShaderObject, vetexShaderSource)
-    curContext.compileShader(vertexShaderObject)
-    if (!curContext.getShaderParameter(vertexShaderObject, curContext.COMPILE_STATUS)) {
-        throw curContext.getShaderInfoLog(vertexShaderObject)
+function createProgramObject(GL, vertexShaderSource, fragmentShaderSource) {
+    const vertexShaderObject = GL.createShader(GL.VERTEX_SHADER)
+    GL.shaderSource(vertexShaderObject, vertexShaderSource)
+    GL.compileShader(vertexShaderObject)
+    if (!GL.getShaderParameter(vertexShaderObject, GL.COMPILE_STATUS)) {
+        throw GL.getShaderInfoLog(vertexShaderObject)
     }
 
-    const fragmentShaderObject = curContext.createShader(curContext.FRAGMENT_SHADER)
-    curContext.shaderSource(fragmentShaderObject, fragmentShaderSource)
-    curContext.compileShader(fragmentShaderObject)
-    if (!curContext.getShaderParameter(fragmentShaderObject, curContext.COMPILE_STATUS)) {
-        throw curContext.getShaderInfoLog(fragmentShaderObject)
+    const fragmentShaderObject = GL.createShader(GL.FRAGMENT_SHADER)
+    GL.shaderSource(fragmentShaderObject, fragmentShaderSource)
+    GL.compileShader(fragmentShaderObject)
+    if (!GL.getShaderParameter(fragmentShaderObject, GL.COMPILE_STATUS)) {
+        throw GL.getShaderInfoLog(fragmentShaderObject)
     }
 
-    const programObject = curContext.createProgram()
-    curContext.attachShader(programObject, vertexShaderObject)
-    curContext.attachShader(programObject, fragmentShaderObject)
-    curContext.linkProgram(programObject)
-    if (!curContext.getProgramParameter(programObject, curContext.LINK_STATUS)) {
+    const programObject = GL.createProgram()
+    GL.attachShader(programObject, vertexShaderObject)
+    GL.attachShader(programObject, fragmentShaderObject)
+    GL.linkProgram(programObject)
+    if (!GL.getProgramParameter(programObject, GL.LINK_STATUS)) {
         throw "Error linking shaders."
     }
 
@@ -1234,7 +1234,7 @@ function genIcons() {
     blockIcons.lengths = []
     let texOrder = [1, 2, 3]
     let shadows = [1, 0.4, 0.7]
-    let scale = 0.16 / height * inventory.size
+    let scale = 0.16 / height * inventory.size;
     for (let i = 1; i < BLOCK_COUNT; i++) {
         let data = []
         let block = blockData[i]
@@ -2678,7 +2678,6 @@ class Section {
         let shapeVerts = null
         let shapeTexVerts = null
         let pallete = this.pallete
-        let intShad = interpolateShadows
 
         for (let i = 0; i < length; i++) {
             data = rData[i]
@@ -2774,7 +2773,7 @@ class Section {
                 let z = (rnd & 15) + this.z
                 if (!blockData[world.getBlock(x, y + 1, z)].transparent) {
                     world.setBlock(x, y, z, blockIds.dirt, false)
-                    return
+                    return;
                 }
 
                 let rnd2 = Math.random() * 27 | 0

@@ -61,7 +61,6 @@ function Marsaglia(i1, i2) {
 
 // Copied and modified from https://github.com/blindman67/SimplexNoiseJS
 function openSimplexNoise(clientSeed) {
-    const SQ4 = 2;
     const toNums = function(s) {
         return s.split(",").map(function(s) {
             return new Uint8Array(s.split("").map(function(v) {

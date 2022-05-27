@@ -2,20 +2,30 @@
 <html lang="en-US">
 	<head>
 		<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta name="author" content="Team Blockverse">
+    <meta name="description" content="Blockverse 2 Web Game">
+    <meta http-equiv="X-UA-Compatible" content="ID=edge">
+    <meta http-equiv="Cross-Origin-Resource-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    
 		<title>Blockverse 2</title>
+    
 		<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
 	</head>
 	<body>
-	<canvas id="overlay" tabindex="0" width="600" height="600" style="position: absolute; top: 0px; left: 0px"></canvas>
-	<input type="text" id="savebox" class="hidden" spellcheck="false" style="position: absolute; top: 10px; left: 10px; z-index: 1;">
-	<input type="text" id="boxcentertop" class="hidden" spellcheck="false">
-	<div id="quota" class="hidden"></div>
-	<div id="onhover" class="hidden"></div>
-	<div class="world-select hidden" id="worlds"></div>
-  <div class="content-manager hidden" id="content-manager"></div>
-	<p id="message" class="hidden" style="position: absolute; top: 10px; right: 10px; z-index: 1; text-align: right; background-color: rgba(255, 255, 255, 0.3);"></p>
-	<script type="module" src="game/blockverse.js"></script>
+	  <canvas id="overlay" tabindex="0" width="600" height="600" style="position: absolute; top: 0px; left: 0px"></canvas>
+	  <input type="text" id="savebox" class="hidden" spellcheck="false" style="position: absolute; top: 10px; left: 10px; z-index: 1;">
+	  <input type="text" id="boxcentertop" class="hidden" spellcheck="false">
+	  <div id="quota" class="hidden"></div>
+	  <div id="onhover" class="hidden"></div>
+	  <div class="world-select hidden" id="worlds"></div>
+    <div class="content-manager hidden" id="content-manager"></div>
+	  <p id="message" class="hidden" style="position: absolute; top: 10px; right: 10px; z-index: 1; text-align: right; background-color: rgba(255, 255, 255, 0.3);"></p>
+    <script src="game/lib/DPE/index.js"></script>
 	</body>
+  <script type="module" src="game/blockverse.js"></script>
 </html>
