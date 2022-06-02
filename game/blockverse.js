@@ -1,5 +1,8 @@
 "use strict";
 // ====================================
+// Global Imports
+import { version } from './core/globals.js'
+
 // Math Imports
 import { HALF_PI } from './math/constants.js';
 import { Marsaglia, openSimplexNoise, PerlinNoise, seedHash, noiseSeed, noise, hash } from './math/noise.js';
@@ -10,6 +13,12 @@ import { WebGL2Renderer } from './render/webgl2/gl2render.js';
 // Block data Imports
 import { blockData } from './GameData/blocks.js';
 
+// Shader Data Imports (Remove when dynamic shader loading is ready)
+import { SOURCE as vertexShaderSrc3D } from '../assets/shaders/program0/VERTEX.js';
+import { SOURCE as fragmentShaderSrc3D } from '../assets/shaders/program0/FRAGMENT.js';
+
+import { SOURCE as vertexShaderSrc2D } from '../assets/shaders/program1/VERTEX.js';
+import { SOURCE as fragmentShaderSrc2D } from '../assets/shaders/program1/FRAGMENT.js';
 // ========================================
 // Browser Compatibility Helpers
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -42,86 +51,8 @@ if (!navigator) {
 // ========================================================
 let minX, minY, minZ, maxX, maxY, maxZ; // Temporary globals to make strict mode work for now
 let audio;
-let renderer;
+let renderer; // WebGL2Renderer Context, a WIP solution for easier rendering
 let soundPlaying = false;
-
-// GLSL Shaders
-const fragmentShaderSrc2D = `#version 300 es
-precision highp float;
-
-uniform sampler2D uSampler;
-in vec2 vTexture;
-in float vShadow;
-
-out vec4 FragColor;
-
-void main() {
-	vec4 color = texture(uSampler, vTexture);
-	FragColor = vec4(color.rgb * vShadow, color.a);
-	if (FragColor.a == 0.0) discard; // Alpha Test
-}`;
-
-const fragmentShaderSrc3D = `#version 300 es
-precision highp float;
-
-uniform sampler2D uSampler;
-in float vShadow;
-in vec2 vTexture;
-in float vFog;
-
-out vec4 FragColor;
-    
-vec4 fog(vec4 color) {
-	color.r += (0.33 - color.r) * vFog;
-	color.g += (0.54 - color.g) * vFog;
-	color.b += (0.72 - color.b) * vFog;
-	return color;
-} // Fog is hardcoded: remove me later
-
-void main(){
-	vec4 color = texture(uSampler, vTexture);
-	FragColor = fog(vec4(color.rgb * vShadow, color.a));
-	if (FragColor.a == 0.0) discard; // Alpha Test
-}`;
-
-const vertexShaderSrc2D = `#version 300 es
-
-in vec2 aVertex;
-in vec2 aTexture;
-in float aShadow;
-
-out vec2 vTexture;
-out float vShadow;
-
-void main() {
-	vTexture = aTexture;
-	vShadow = aShadow;
-	gl_Position = vec4(aVertex, 0.5, 1.0);
-}`;
-
-const vertexShaderSrc3D = `#version 300 es
-
-in vec3  aVertex;
-in vec2  aTexture;
-in float aShadow;
-    
-out vec2  vTexture;
-out float vShadow;
-out float vFog;
-    
-uniform mat4 uView;
-uniform float uDist;
-uniform vec3 uPos;
-
-void main() {
-	vTexture = aTexture;
-	vShadow = aShadow > 0.0 ? aShadow : 1.0;
-	gl_Position = uView * vec4( aVertex, 1.0);
-
-	float range = max(uDist / 5.0, 8.0);
-	vFog = clamp((length(uPos.xz - aVertex.xz) - uDist + range) / range, 0.0, 1.0);
-}`;
-
 // =========================================================
 const savebox = document.getElementById("savebox")
 const boxCenterTop = document.getElementById("boxcentertop")
@@ -430,7 +361,7 @@ function line(x1, y1, x2, y2) {
     ctx2D.lineTo(x2, y2)
 }
 
-function text(txt, x, y, h) {
+function text(txt = 'NO TEXT DATA GIVEN', x, y, h) {
     h = h || 0
 
     const lines = txt.split("\n");
@@ -440,7 +371,7 @@ function text(txt, x, y, h) {
     }
 }
 
-function textSize(size) {
+function textSize(size = '24') {
     ctx2D.font = size + 'px Monospace' // Default is monospace
 }
 
@@ -451,6 +382,7 @@ function textAlign(mode = "left") {
 function strokeWeight(num) {
     ctx2D.lineWidth = num
 }
+
 const ARROW = "arrow"
 const HAND = "pointer"
 const CROSS = "crosshair"
@@ -551,9 +483,7 @@ function save() {
     }).then(() => world.edited = Date.now()).catch(e => console.error(e))
 }
 
-//globals
-//{
-const version = "INDEV_2";
+// Globals
 const reach = 5 // Max distance player can place or break blocks
 let sky = [0.33, 0.54, 0.72] // 0 to 1 RGB color scale (default data is [0.33, 0.54, 0.72])
 let superflat = false
@@ -570,7 +500,6 @@ let settings = {
     renderDistance: 4, // Render Distance (4 Chunks is default)
     fov: 70, // Field of view in degrees
     mouseSense: 100 // Mouse sensitivity as a percentage of the default
-  
 }
 
 let locked = true
@@ -3597,12 +3526,8 @@ class World {
         caves = options >> 3 & 1
         trees = options >> 4 & 1
 
-        let version = data.shift()
-        this.version = version
-
-        // if (version.split(" ")[1].split(".").join("") < 70) {
-        // 	alert("This save code is for an older version. 0.7.0 or later is needed")
-        // }
+        let _v = data.shift(); // Version of the World (I renamed it because of globals)
+        this.version = _v
 
         let pallete = data.shift().split(",").map(n => parseInt(n, 36))
         this.loadFrom = []
@@ -3915,15 +3840,15 @@ function initButtons() {
     Button.add(width / 2, height / 2 + 145, 400, 40, "Content", "main menu", nothing, always, "Mod Support is still being worked on.")//r => changeScene("content"))
   
     // Creation menu buttons
-    Button.add(width / 2, 135, 300, 40, ["World Type: Normal", "World Type: Superflat"], "creation menu", r => superflat = r === "World Type: Superflat")
-    Button.add(width / 2, 185, 300, 40, ["Trees: On", "Trees: Off"], "creation menu", r => trees = r === "Trees: On", function() {
+    Button.add(160, 135, 300, 40, ["World Type: Normal", "World Type: Superflat"], "creation menu", r => superflat = r === "World Type: Superflat")
+    Button.add(160, 185, 300, 40, ["Trees: On", "Trees: Off"], "creation menu", r => trees = r === "Trees: On", function() {
         if (superflat) {
             this.index = 1
             trees = false
         }
         return superflat
     })
-    Button.add(width / 2, 235, 300, 40, ["Caves: On", "Caves: Off"], "creation menu", r => caves = r === "Caves: On", function() {
+    Button.add(160, 235, 300, 40, ["Caves: On", "Caves: Off"], "creation menu", r => caves = r === "Caves: On", function() {
         if (superflat) {
             this.index = 1
             caves = false
@@ -3931,9 +3856,9 @@ function initButtons() {
         return superflat
     })
 
-    Button.add(width / 2, 285, 300, 40, "Game Mode: Creative", "creation menu", nothing, always, "This will come with due time.")
-    Button.add(width / 2, 335, 300, 40, "Difficulty: Peaceful", "creation menu", nothing, always, "Soon(TM)")
-    Button.add(width / 2, height - 90, 300, 40, "Create New World", "creation menu", r => {
+    Button.add(160, 285, 300, 40, "Game Mode: Creative", "creation menu", nothing, always, "This will come with due time.")
+    Button.add(160, 335, 300, 40, "Difficulty: Peaceful", "creation menu", nothing, always, "Soon(TM)")
+    Button.add(width / 2, height - 90, width - 20, 40, "Create New World", "creation menu", r => {
         world = new World()
         world.id = Date.now()
         let name = boxCenterTop.value || "World";
@@ -3959,7 +3884,7 @@ function initButtons() {
         world.chunkGenQueue.sort(sortChunks)
         changeScene("loading")
     })
-    Button.add(width / 2, height - 40, 300, 40, "Cancel", "creation menu", r => changeScene(previousScreen))
+    Button.add(width / 2, height - 40, width - 20, 40, "Cancel", "creation menu", r => changeScene(previousScreen))
 
     // Loadsave menu buttons
     const selected = () => !selectedWorld || !worlds[selectedWorld]
@@ -4680,10 +4605,11 @@ function initWebgl() {
 
     modelView = new Float32Array(16)
     glUniforms = {}
-    
+  
     // Create Program3D
     const vertShader3 = renderer.createVertexShader(vertexShaderSrc3D);
     const fragShader3 = renderer.createFragmentShader(fragmentShaderSrc3D);
+
     programs[0] = renderer.createProgram(vertShader3, fragShader3);
 
     // Create Program2D
@@ -4692,26 +4618,30 @@ function initWebgl() {
     programs[1] = renderer.createProgram(vertShader2, fragShader2);
 
     // Uniform Setup
-    renderer.setProgram(programs[1]);
+    renderer.setProgram(programs[1]); // 2D Uniforms
+  
     glUniforms.uSampler2 = renderer.getUniform("uSampler");
     glUniforms.aTexture2 = renderer.getAttrib("aTexture");
     glUniforms.aVertex2 = renderer.getAttrib("aVertex");
     glUniforms.aShadow2 = renderer.getAttrib("aShadow");
+  
+    renderer.setProgram(programs[0]); // 3D Uniforms
 
-    renderer.setProgram(programs[0]);
+    glUniforms.uFogColor = renderer.getUniform("uFogColor");
     glUniforms.uSampler = renderer.getUniform("uSampler");
     glUniforms.uPos = renderer.getUniform("uPos");
     glUniforms.uDist = renderer.getUniform("uDist");
     glUniforms.aShadow = renderer.getAttrib("aShadow");
     glUniforms.aTexture = renderer.getAttrib("aTexture");
     glUniforms.aVertex = renderer.getAttrib("aVertex");
-
-    gl.uniform1f(glUniforms.uDist, 1000)
-
+  
+    gl.uniform1f(glUniforms.uDist, 1000); // WTF does uDist do? (Does it manage frustrum culling?)
+    gl.uniform3f(glUniforms.uFogColor, sky[0], sky[1], sky[2]); // Magical Fog Uniform!
+  
     //Send the block textures to the GPU
     initTextures()
     initShapes()
-
+  
     // These buffers are only used for drawing the main menu blocks (Removing them crashes mid-game?)
     sideEdgeBuffers = {}
     for (let side in shapes.cube.verts) {
@@ -4734,7 +4664,7 @@ function initWebgl() {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexOrder, gl.STATIC_DRAW);
 
-    //Tell it not to render the back sides of blocks
+    // Cull Back Faces
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
 
@@ -4747,10 +4677,6 @@ function initWebgl() {
 }
 
 function initBackgrounds() {
-    // Home screen background
-    use3d()
-    gl.clearColor(sky[0], sky[1], sky[2], 1.0)
-    gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT)
     let pixels = new Uint8Array(width * height * 4)
     const w = width * 4;
 
@@ -4916,26 +4842,26 @@ function initEverything() {
 // Define all the scene draw functions
 (function() {
     function title() {
-        const title = "Blockverse 2"
+        const w2 = width / 2;
         const font = "VT323,monospace";
         strokeWeight(1)
         textAlign('center');
 
         ctx2D.font = "bold 120px " + font
         fill(30)
-        text(title, width / 2, 158)
+        text("Blockverse 2", w2, 158)
         fill(40)
-        text(title, width / 2, 155)
+        text("Blockverse 2", w2, 155)
         ctx2D.font = "bold 121px " + font
         fill(50)
-        text(title, width / 2, 152)
+        text("Blockverse 2", w2, 152)
         fill(70)
-        text(title, width / 2, 150)
+        text("Blockverse 2", w2, 150)
         fill(90)
         ctx2D.font = "bold 122px " + font
-        text(title, width / 2, 148)
+        text("Blockverse 2", w2, 148)
         fill(110)
-        text(title, width / 2, 145)
+        text("Blockverse 2", w2, 145)
     }
 
     const clear = () => ctx2D.clearRect(0, 0, canvas.width, canvas.height)
@@ -5037,10 +4963,10 @@ function initEverything() {
 
     drawScreens["creation menu"] = () => {
         dirt()
-        textAlign('center');
+        textAlign('right');
         textSize(20)
         fill(255)
-        text("Create New World", width / 2, 20)
+        text("World Creator", width - 10, 20)
     }
 
     drawScreens["loadsave menu"] = () => {
