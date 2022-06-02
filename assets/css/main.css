@@ -63,6 +63,7 @@ input[type=text]:focus {
 	top: 30px;
 	display: block;
 	margin: 0 auto;
+  font-family: monospace;
 }
 
 .hidden {
@@ -93,4 +94,5 @@ input[type=text]:focus {
 	justify-content: center;
 	text-align: center;
 	color: white;
+  font-family: monospace;
 }
