@@ -1,15 +1,23 @@
 "use strict";
 // ====================================
-// Imports
+// Math Imports
 import { HALF_PI } from './math/constants.js';
 import { Marsaglia, openSimplexNoise, PerlinNoise, seedHash, noiseSeed, noise, hash } from './math/noise.js';
+
+// Renderer Imports
+import { WebGL2Renderer } from './render/webgl2/gl2render.js';
+
+// Block data Imports
 import { blockData } from './GameData/blocks.js';
 
+// ========================================
 // Browser Compatibility Helpers
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 
 // Error Manager
+let isFirstError = true;
 window.onerror = function(msg, url, line, col) {
+  if (isFirstError) {
     document.body.innerHTML = `<h1>Error</h1>
                              <b>Error Given:</b> ${msg}<br>
                              <b>Source:</b> ${line}:${col} (${url})
@@ -18,7 +26,10 @@ window.onerror = function(msg, url, line, col) {
     document.body.style = `background: rgb(0, 0, 255); 
                          color: white; 
                          font-family: monospace;`;
+    
+    isFirstError = false;
     return false;
+  } // Mitigation
 }
 
 // Early Checks
@@ -31,6 +42,7 @@ if (!navigator) {
 // ========================================================
 let minX, minY, minZ, maxX, maxY, maxZ; // Temporary globals to make strict mode work for now
 let audio;
+let renderer;
 let soundPlaying = false;
 
 // GLSL Shaders
@@ -111,16 +123,15 @@ void main() {
 }`;
 
 // =========================================================
+const savebox = document.getElementById("savebox")
+const boxCenterTop = document.getElementById("boxcentertop")
+const message = document.getElementById("message")
+const worldsDOM = document.getElementById("worlds")
+const quota = document.getElementById("quota")
 const canvas = document.getElementById("overlay")
 const hoverbox = document.getElementById("onhover")
 const contentManager = document.getElementById("content-manager")
 const ctx2D = canvas.getContext("2d")
-
-window.savebox = document.getElementById("savebox")
-window.boxCenterTop = document.getElementById("boxcentertop")
-window.message = document.getElementById("message")
-window.worlds = document.getElementById("worlds")
-window.quota = document.getElementById("quota")
 
 ctx2D.canvas.width = window.innerWidth
 ctx2D.canvas.height = window.innerHeight
@@ -556,9 +567,10 @@ let currentFov
 
 // Configurable and savable settings
 let settings = {
-    renderDistance: 4,
+    renderDistance: 4, // Render Distance (4 Chunks is default)
     fov: 70, // Field of view in degrees
     mouseSense: 100 // Mouse sensitivity as a percentage of the default
+  
 }
 
 let locked = true
@@ -614,8 +626,8 @@ let drawScreens = {
 
 const html = {
     pause: {
-        enter: [window.message],
-        exit: [window.savebox, window.message]
+        enter: [message],
+        exit: [savebox, message]
     },
     "content": {
       enter: [contentManager],
@@ -625,17 +637,17 @@ const html = {
       }
     },
     "loadsave menu": {
-        enter: [window.worlds, window.quota],
-        exit: [window.worlds, window.quota],
+        enter: [worldsDOM, quota],
+        exit: [worldsDOM, quota],
         onenter: () => {
             audio = new AudioContext(); // Start Audio Engine
             if (navigator.storage && navigator.storage.estimate) {
                 navigator.storage.estimate().then(data => {
-                    window.quota.innerText = `${data.usage.toLocaleString()} / ${data.quota.toLocaleString()} bytes (${(100 * data.usage / data.quota).toLocaleString(undefined, { maximumSignificantDigits: 2 })}%) of your quota used`
+                    quota.innerText = `${data.usage.toLocaleString()} / ${data.quota.toLocaleString()} bytes (${Math.round((100 * data.usage / data.quota).toLocaleString(undefined, { maximumSignificantDigits: 2 }))}%) of your quota used`
                 }).catch(console.error)
             }
           
-            window.boxCenterTop.onmousedown = e => {
+            savebox.onmousedown = e => {
                 let elem = document.getElementsByClassName("selected")
                 if (elem && elem[0]) {
                     elem[0].classList.remove("selected")
@@ -645,26 +657,26 @@ const html = {
             }
         },
         onexit: () => {
-            window.boxCenterTop.onmousedown = null
+            savebox.onmousedown = null
         }
     },
     "creation menu": {
-        enter: [window.boxCenterTop],
-        exit: [window.boxCenterTop],
+        enter: [savebox],
+        exit: [savebox],
         onenter: () => {
-            window.boxCenterTop.placeholder = "Enter World Name"
-            window.boxCenterTop.value = ""
+            savebox.placeholder = "Enter World Name"
+            savebox.value = ""
         }
     },
     loading: {
         onenter: startLoad
     },
     editworld: {
-        enter: [window.boxCenterTop],
-        exit: [window.boxCenterTop],
+        enter: [savebox],
+        exit: [savebox],
         onenter: () => {
-            window.boxCenterTop.placeholder = "Enter World Name"
-            window.boxCenterTop.value = ""
+            savebox.placeholder = "Enter World Name"
+            savebox.value = ""
         }
     }
 }
@@ -708,7 +720,7 @@ let holding = 0
 let Key = {}
 let modelView = win.modelView || new Float32Array(16)
 win.modelView = modelView
-let glCache
+let glUniforms // Originally glCache, renamed for clarity
 let worlds, selectedWorld = 0
 let freezeFrame = 0
 let p
@@ -781,34 +793,16 @@ const Sides = {
     west: 5,
 }
 
-// GLSL Tools (Builtin, modified from original code)
-function createProgramObject(GL, vertexShaderSource, fragmentShaderSource) {
-    const vertexShaderObject = GL.createShader(GL.VERTEX_SHADER)
-    GL.shaderSource(vertexShaderObject, vertexShaderSource)
-    GL.compileShader(vertexShaderObject)
-    if (!GL.getShaderParameter(vertexShaderObject, GL.COMPILE_STATUS)) {
-        throw GL.getShaderInfoLog(vertexShaderObject)
-    }
+/*
+  These are the programs for the engine. This change was done to account for mods (Content) that need custom shader code
+  or shaders that overhaul the graphics (while limited in its capicity, I hope to get higher-end effects on this engine soon)
+  Slot Overlay:
+    - Slot 0 = Hardcoded programs3D
+    - Slot 1 = Hardcoded programs2D
+    - Slot 2+ = Settable programs that can be added by mods (WIP)
+*/
+let programs = []; 
 
-    const fragmentShaderObject = GL.createShader(GL.FRAGMENT_SHADER)
-    GL.shaderSource(fragmentShaderObject, fragmentShaderSource)
-    GL.compileShader(fragmentShaderObject)
-    if (!GL.getShaderParameter(fragmentShaderObject, GL.COMPILE_STATUS)) {
-        throw GL.getShaderInfoLog(fragmentShaderObject)
-    }
-
-    const programObject = GL.createProgram()
-    GL.attachShader(programObject, vertexShaderObject)
-    GL.attachShader(programObject, fragmentShaderObject)
-    GL.linkProgram(programObject)
-    if (!GL.getProgramParameter(programObject, GL.LINK_STATUS)) {
-        throw "Error linking shaders."
-    }
-
-    return programObject
-}
-
-let program3D, program2D; // The two hardcoded programs (To-do: No more hardcoded programs to allow even more flexibility with shaders)
 
 function objectify(x, y, z, width, height, textureX, textureY) {
     return {
@@ -822,7 +816,7 @@ function objectify(x, y, z, width, height, textureX, textureY) {
     }
 } 
 
-let shapes = {
+const shapes = {
     /*
     	[
     		[(-x, -z), (+x, -z), (+x, +z), (-x, +z)], // minX = 0,  minZ = 2,  maxX = 6, maxZ = 8
@@ -1292,19 +1286,19 @@ function genIcons() {
 }
 
 function uniformMatrix(cacheId, programObj, vrName, transpose, matrix) {
-    let vrLocation = glCache[cacheId]
+    let vrLocation = glUniforms[cacheId]
     if (vrLocation === undefined) {
         vrLocation = gl.getUniformLocation(programObj, vrName)
-        glCache[cacheId] = vrLocation
+        glUniforms[cacheId] = vrLocation
     }
     gl.uniformMatrix4fv(vrLocation, transpose, matrix)
 }
 
 function vertexAttribPointer(cacheId, programObj, vrName, size, VBO) {
-    let vrLocation = glCache[cacheId]
+    let vrLocation = glUniforms[cacheId]
     if (vrLocation === undefined) {
         vrLocation = gl.getAttribLocation(programObj, vrName)
-        glCache[cacheId] = vrLocation
+        glUniforms[cacheId] = vrLocation
     }
     if (vrLocation !== -1) {
         gl.enableVertexAttribArray(vrLocation)
@@ -1719,7 +1713,7 @@ function FOV(fov) {
 function initModelView(camera, x, y, z, rx, ry) {
     if (camera) {
         camera.transform()
-        uniformMatrix("view3d", program3D, "uView", false, camera.getMatrix())
+        uniformMatrix("view3d", programs[0], "uView", false, camera.getMatrix())
     } else {
         copyArr(defaultModelView, modelView)
         rotX(modelView, rx)
@@ -1727,7 +1721,7 @@ function initModelView(camera, x, y, z, rx, ry) {
         trans(modelView, -x, -y, -z)
         matMult()
         transpose(matrix)
-        uniformMatrix("view3d", program3D, "uView", false, matrix)
+        uniformMatrix("view3d", programs[0], "uView", false, matrix)
     }
 }
 
@@ -2214,16 +2208,16 @@ function box2(sides, tex) {
         let i = 0
         for (let side in Block) {
             if (sides & Block[side]) {
-                vertexAttribPointer("aVertex", program3D, "aVertex", 3, sideEdgeBuffers[Sides[side]])
-                vertexAttribPointer("aTexture", program3D, "aTexture", 2, texCoordsBuffers[textureMap[tex[i]]])
+                vertexAttribPointer("aVertex", programs[0], "aVertex", 3, sideEdgeBuffers[Sides[side]])
+                vertexAttribPointer("aTexture", programs[0], "aTexture", 2, texCoordsBuffers[textureMap[tex[i]]])
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, 0)
             }
             i++
         }
     }
     if (blockOutlines) {
-        vertexAttribPointer("aVertex", program3D, "aVertex", 3, hitBox.shape.buffer)
-        vertexAttribPointer("aTexture", program3D, "aTexture", 2, texCoordsBuffers[textureMap.hitbox])
+        vertexAttribPointer("aVertex", programs[0], "aVertex", 3, hitBox.shape.buffer)
+        vertexAttribPointer("aTexture", programs[0], "aTexture", 2, texCoordsBuffers[textureMap.hitbox])
         for (let i = 0; i < hitBox.shape.size; i++) {
             gl.drawArrays(gl.LINE_LOOP, i * 4, 4)
         }
@@ -2233,14 +2227,14 @@ function box2(sides, tex) {
 function block2(x, y, z, t, camera) {
     if (camera) {
         camera.transformation.translate(x, y, z)
-        uniformMatrix("view3d", program3D, "uView", false, camera.getMatrix())
+        uniformMatrix("view3d", programs[0], "uView", false, camera.getMatrix())
     } else {
         //copyArr(modelView, matrix)
         trans(modelView, x, y, z)
         matMult()
         trans(modelView, -x, -y, -z)
         transpose(matrix)
-        uniformMatrix("view3d", program3D, "uView", false, matrix)
+        uniformMatrix("view3d", programs[0], "uView", false, matrix)
     }
     box2(0xff, blockData[t].textures)
 }
@@ -3073,12 +3067,12 @@ class Chunk {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
         gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
-        gl.vertexAttribPointer(glCache.aVertex, 3, gl.FLOAT, false, 24, 0)
-        gl.enableVertexAttribArray(glCache.aVertex)
-        gl.vertexAttribPointer(glCache.aTexture, 2, gl.FLOAT, false, 24, 12)
-        gl.enableVertexAttribArray(glCache.aTexture)
-        gl.vertexAttribPointer(glCache.aShadow, 1, gl.FLOAT, false, 24, 20)
-        gl.enableVertexAttribArray(glCache.aShadow)
+        gl.vertexAttribPointer(glUniforms.aVertex, 3, gl.FLOAT, false, 24, 0)
+        gl.enableVertexAttribArray(glUniforms.aVertex)
+        gl.vertexAttribPointer(glUniforms.aTexture, 2, gl.FLOAT, false, 24, 12)
+        gl.enableVertexAttribArray(glUniforms.aTexture)
+        gl.vertexAttribPointer(glUniforms.aShadow, 1, gl.FLOAT, false, 24, 20)
+        gl.enableVertexAttribArray(glUniforms.aShadow)
         gl.bindVertexArray(null);
         this.lazy = false
     }
@@ -3457,15 +3451,15 @@ class World {
             else fogDist = dist
         }
 
-        gl.uniform3f(glCache.uPos, p.x, p.y, p.z)
-        gl.uniform1f(glCache.uDist, fogDist)
+        gl.uniform3f(glUniforms.uPos, p.x, p.y, p.z)
+        gl.uniform1f(glUniforms.uDist, fogDist)
 
         let c = this.sortedChunks
         for (let chunk of c) {
             chunk.render()
         }
 
-        gl.uniform3f(glCache.uPos, 0, 0, 0)
+        gl.uniform3f(glUniforms.uPos, 0, 0, 0)
 
         if (hitBox.pos) {
             blockOutlines = true
@@ -3978,15 +3972,12 @@ function initButtons() {
     Button.add(mid - x4, height - 30, w4, 40, "Delete", "loadsave menu", r => {
         if (worlds[selectedWorld] && confirm(`Are you sure you want to delete ${worlds[selectedWorld].name}?`)) {
             deleteFromDB(selectedWorld)
-            window.worlds.removeChild(document.getElementById(selectedWorld))
+            worldsDOM.removeChild(document.getElementById(selectedWorld))
             delete worlds[selectedWorld]
             selectedWorld = 0
         }
     }, () => (selected() || !worlds[selectedWorld].edited), "Delete the world forever.")
-    Button.add(mid + x4, height - 30, w4, 40, "Export", "loadsave menu", r => {
-        boxCenterTop.value = worlds[selectedWorld].code
-    }, selected, "Export the save code into the text box above for copy/paste.")
-    Button.add(mid + 3 * x4, height - 30, w4, 40, "Cancel", "loadsave menu", r => changeScene("main menu"))
+    Button.add(mid + x2, height - 30, w2, 40, "Cancel", "loadsave menu", r => changeScene("main menu"))
     Button.add(mid - x2, height - 75, w2, 40, "Play Selected World", "loadsave menu", r => {
         world = new World()
         win.world = world
@@ -4057,7 +4048,7 @@ function initButtons() {
             world.render()
         }
     })
-    Slider.add(width / 2, 365, width / 3, 40, "options", "Mouse Sensitivity", 30, 400, "mouseSense", val => settings.mouseSense = val)
+    Slider.add(width / 2, 365, width / 3, 40, "options", "Mouse Sensitivity", 50, 150, "mouseSense", val => settings.mouseSense = val)
 }
 
 function initTextures() {
@@ -4135,7 +4126,7 @@ function initTextures() {
         textureCoords[textureMap.hitbox] = arr
     }
 
-    // Big texture with everything in it
+    // Big texture with everything in it (To-do: Mipmapping Filter fix for clip transparents)
     tex = gl.createTexture()
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, tex)
@@ -4145,7 +4136,7 @@ function initTextures() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    gl.uniform1i(glCache.uSampler, 0)
+    gl.uniform1i(glUniforms.uSampler, 0)
 
     // Dirt texture for the background
     let dirtPixels = new Uint8Array(getPixels(textures.dirt))
@@ -4170,9 +4161,9 @@ function drawIcon(x, y, id) {
 
     let buffer = blockIcons[id]
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-    gl.vertexAttribPointer(glCache.aVertex, 3, gl.FLOAT, false, 24, 0)
-    gl.vertexAttribPointer(glCache.aTexture, 2, gl.FLOAT, false, 24, 12)
-    gl.vertexAttribPointer(glCache.aShadow, 1, gl.FLOAT, false, 24, 20)
+    gl.vertexAttribPointer(glUniforms.aVertex, 3, gl.FLOAT, false, 24, 0)
+    gl.vertexAttribPointer(glUniforms.aTexture, 2, gl.FLOAT, false, 24, 12)
+    gl.vertexAttribPointer(glUniforms.aShadow, 1, gl.FLOAT, false, 24, 20)
     gl.drawElements(gl.TRIANGLES, blockIcons.lengths[id], gl.UNSIGNED_INT, 0)
 }
 
@@ -4627,25 +4618,25 @@ window.onresize = e => {
 }
 
 function use2d() {
-    gl.disableVertexAttribArray(glCache.aTexture)
-    gl.disableVertexAttribArray(glCache.aShadow)
-    gl.disableVertexAttribArray(glCache.aVertex)
-    gl.useProgram(program2D)
+    gl.disableVertexAttribArray(glUniforms.aTexture)
+    gl.disableVertexAttribArray(glUniforms.aShadow)
+    gl.disableVertexAttribArray(glUniforms.aVertex)
+    gl.useProgram(programs[1])
 
-    gl.enableVertexAttribArray(glCache.aVertex2)
-    gl.enableVertexAttribArray(glCache.aTexture2)
-    gl.enableVertexAttribArray(glCache.aShadow2)
+    gl.enableVertexAttribArray(glUniforms.aVertex2)
+    gl.enableVertexAttribArray(glUniforms.aTexture2)
+    gl.enableVertexAttribArray(glUniforms.aShadow2)
 }
 
 function use3d() {
-    gl.disableVertexAttribArray(glCache.aTexture2)
-    gl.disableVertexAttribArray(glCache.aShadow2)
-    gl.disableVertexAttribArray(glCache.aVertex2)
-    gl.useProgram(program3D)
+    gl.disableVertexAttribArray(glUniforms.aTexture2)
+    gl.disableVertexAttribArray(glUniforms.aShadow2)
+    gl.disableVertexAttribArray(glUniforms.aVertex2)
+    gl.useProgram(programs[0])
 
-    gl.enableVertexAttribArray(glCache.aVertex)
-    gl.enableVertexAttribArray(glCache.aTexture)
-    gl.enableVertexAttribArray(glCache.aShadow)
+    gl.enableVertexAttribArray(glUniforms.aVertex)
+    gl.enableVertexAttribArray(glUniforms.aTexture)
+    gl.enableVertexAttribArray(glUniforms.aShadow)
 }
 
 let maxLoad = 1 // WTF does this do?
@@ -4666,13 +4657,10 @@ function initWebgl() {
                     z-index: -1;
                     top: 0px;
                     left: 0px;`; // Merged to prevent DOM Restyling Events (1 vs 4)
-        gl = canv.getContext("webgl2", {
-            preserveDrawingBuffer: true,
-            antialias: false,
-            premultipliedAlpha: false,
-            powerPreference: "high-performance",
-            stencil: false
-        })
+      
+        renderer = new WebGL2Renderer(canv);
+        gl = renderer.gl;
+      
         if (!gl) {
           throw "WebGL2 API not Supported"; // Fallback
         } else {
@@ -4691,26 +4679,34 @@ function initWebgl() {
     }
 
     modelView = new Float32Array(16)
-    glCache = {}
-    program3D = createProgramObject(gl, vertexShaderSrc3D, fragmentShaderSrc3D)
-    program2D = createProgramObject(gl, vertexShaderSrc2D, fragmentShaderSrc2D)
+    glUniforms = {}
+    
+    // Create Program3D
+    const vertShader3 = renderer.createVertexShader(vertexShaderSrc3D);
+    const fragShader3 = renderer.createFragmentShader(fragmentShaderSrc3D);
+    programs[0] = renderer.createProgram(vertShader3, fragShader3);
+
+    // Create Program2D
+    const vertShader2 = renderer.createVertexShader(vertexShaderSrc2D);
+    const fragShader2 = renderer.createFragmentShader(fragmentShaderSrc2D);
+    programs[1] = renderer.createProgram(vertShader2, fragShader2);
 
     // Uniform Setup
-    gl.useProgram(program2D)
-    glCache.uSampler2 = gl.getUniformLocation(program2D, "uSampler")
-    glCache.aTexture2 = gl.getAttribLocation(program2D, "aTexture")
-    glCache.aVertex2 = gl.getAttribLocation(program2D, "aVertex")
-    glCache.aShadow2 = gl.getAttribLocation(program2D, "aShadow")
+    renderer.setProgram(programs[1]);
+    glUniforms.uSampler2 = renderer.getUniform("uSampler");
+    glUniforms.aTexture2 = renderer.getAttrib("aTexture");
+    glUniforms.aVertex2 = renderer.getAttrib("aVertex");
+    glUniforms.aShadow2 = renderer.getAttrib("aShadow");
 
-    gl.useProgram(program3D)
-    glCache.uSampler = gl.getUniformLocation(program3D, "uSampler")
-    glCache.uPos = gl.getUniformLocation(program3D, "uPos")
-    glCache.uDist = gl.getUniformLocation(program3D, "uDist")
-    glCache.aShadow = gl.getAttribLocation(program3D, "aShadow")
-    glCache.aTexture = gl.getAttribLocation(program3D, "aTexture")
-    glCache.aVertex = gl.getAttribLocation(program3D, "aVertex")
+    renderer.setProgram(programs[0]);
+    glUniforms.uSampler = renderer.getUniform("uSampler");
+    glUniforms.uPos = renderer.getUniform("uPos");
+    glUniforms.uDist = renderer.getUniform("uDist");
+    glUniforms.aShadow = renderer.getAttrib("aShadow");
+    glUniforms.aTexture = renderer.getAttrib("aTexture");
+    glUniforms.aVertex = renderer.getAttrib("aVertex");
 
-    gl.uniform1f(glCache.uDist, 1000)
+    gl.uniform1f(glUniforms.uDist, 1000)
 
     //Send the block textures to the GPU
     initTextures()
@@ -4778,12 +4774,12 @@ function initBackgrounds() {
     ])
 
     gl.bufferData(gl.ARRAY_BUFFER, bgCoords, gl.STATIC_DRAW)
-    gl.uniform1i(glCache.uSampler2, 1)
+    gl.uniform1i(glUniforms.uSampler2, 1)
     gl.clearColor(0, 0, 0, 1)
     gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT)
-    gl.vertexAttribPointer(glCache.aVertex2, 2, gl.FLOAT, false, 20, 0)
-    gl.vertexAttribPointer(glCache.aTexture2, 2, gl.FLOAT, false, 20, 8)
-    gl.vertexAttribPointer(glCache.aShadow2, 1, gl.FLOAT, false, 20, 16)
+    gl.vertexAttribPointer(glUniforms.aVertex2, 2, gl.FLOAT, false, 20, 0)
+    gl.vertexAttribPointer(glUniforms.aTexture2, 2, gl.FLOAT, false, 20, 8)
+    gl.vertexAttribPointer(glUniforms.aShadow2, 1, gl.FLOAT, false, 20, 16)
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
     pixels = new Uint8Array(width * height * 4)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
@@ -4826,11 +4822,11 @@ function initPlayer() {
 }
 
 function initWorldsMenu() {
-    while (window.worlds.firstChild) {
-        window.worlds.removeChild(window.worlds.firstChild)
+    while (worldsDOM.firstChild) {
+        worldsDOM.removeChild(worldsDOM.firstChild)
     }
     selectedWorld = 0
-    window.boxCenterTop.value = ""
+    savebox.value = ""
 
     const deselect = () => {
         let elem = document.getElementsByClassName("selected")
@@ -4863,7 +4859,7 @@ function initWorldsMenu() {
         div.innerHTML += `${version}${br}`
         div.innerHTML += `${size.toLocaleString()} bytes used`
 
-        window.worlds.appendChild(div)
+        worldsDOM.appendChild(div)
     }
 
     worlds = {}
@@ -4884,8 +4880,8 @@ function initWorldsMenu() {
                 worlds[data.id] = data
             }
         }
-        window.worlds.onclick = Button.draw
-        window.boxCenterTop.onkeyup = Button.draw
+        worlds.onclick = Button.draw
+        savebox.onkeyup = Button.draw
     }).catch(e => console.error(e))
 
     superflat = false

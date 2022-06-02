@@ -17,6 +17,7 @@
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
 	</head>
 	<body>
+    <!-- Required DOM Elements -->
 	  <canvas id="overlay" tabindex="0" width="600" height="600" style="position: absolute; top: 0px; left: 0px"></canvas>
 	  <input type="text" id="savebox" class="hidden" spellcheck="false" style="position: absolute; top: 10px; left: 10px; z-index: 1;">
 	  <input type="text" id="boxcentertop" class="hidden" spellcheck="false">
@@ -25,7 +26,11 @@
 	  <div class="world-select hidden" id="worlds"></div>
     <div class="content-manager hidden" id="content-manager"></div>
 	  <p id="message" class="hidden" style="position: absolute; top: 10px; right: 10px; z-index: 1; text-align: right; background-color: rgba(255, 255, 255, 0.3);"></p>
+
+    <!-- Include Global Libraries-->
     <script src="game/lib/DPE/index.js"></script>
 	</body>
+
+  <!-- Game Itself -->
   <script type="module" src="game/blockverse.js"></script>
 </html>
