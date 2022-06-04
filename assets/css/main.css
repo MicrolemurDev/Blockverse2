@@ -105,7 +105,9 @@ input[type=text]:focus {
 #overlay {
   position: absolute; 
   top: 0px; 
-  left: 0px
+  left: 0px;
+  margin: 0px;
+  padding: 0px;
 }
 
 #message {

@@ -1,0 +1,7 @@
+{
+  "name": "Blockverse 2 Game",
+  "pack_version": "INDEV_3",
+  "engine_version": "INDEV_3",
+  "author": "Team Blockverse",
+  "blockdata_location": "scripts/blocks.js"
+}

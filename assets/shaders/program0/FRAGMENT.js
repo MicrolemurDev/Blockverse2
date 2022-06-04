@@ -3,20 +3,23 @@ export const SHADER_TYPE = 'FRAGMENT';
 export const SOURCE = `#version 300 es
 precision highp float;
 
-uniform sampler2D uSampler;
-in float vShadow;
-in vec2  vTexture;
-in float vFog;
-in vec3  vFogColor;
+uniform sampler2D uSampler; // ???
+uniform float     uSkyLight; // Sky Light Level for Calculation
+uniform vec3      uFogColor; // Fog Color Uniform
 
-out vec4 FragColor;
+in float vShadow; // Vertex Shadow Level to make smooth
+in float vLightValue; // WIP Light Value of block
+in vec2  vTexture; // Texture Atlas Coords
+in float vFog; // Fog Level
+
+out vec4 FragColor; // This is the Fragment Color, in place of gl_FragColor
     
 vec4 fog(vec4 color) {
-	color.r += (vFogColor.r - color.r) * vFog; // R
-	color.g += (vFogColor.g - color.g) * vFog; // G
-	color.b += (vFogColor.b - color.b) * vFog; // B
+	color.r += (uFogColor.r - color.r) * vFog; // R
+	color.g += (uFogColor.g - color.g) * vFog; // G
+	color.b += (uFogColor.b - color.b) * vFog; // B
 	return color;
-} // Fog is hardcoded: remove me later
+}
 
 void main(){
 	vec4 color = texture(uSampler, vTexture);
