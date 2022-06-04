@@ -1,15 +1,25 @@
 "use strict";
 // ====================================
+// Global Imports
+import { version } from './core/globals.js'
+
 // Math Imports
 import { HALF_PI } from './math/constants.js';
+import { Vector3 } from './math/vector.js';
 import { Marsaglia, openSimplexNoise, PerlinNoise, seedHash, noiseSeed, noise, hash } from './math/noise.js';
 
 // Renderer Imports
 import { WebGL2Renderer } from './render/webgl2/gl2render.js';
 
 // Block data Imports
-import { blockData } from './GameData/blocks.js';
+import { blockData } from '../data/blockverse2/scripts/blocks.js'; // To-do: Use the packdata format over this.
 
+// Shader Data Imports (Remove when dynamic shader loading is ready)
+import { SOURCE as vertexShaderSrc3D } from '../assets/shaders/program0/VERTEX.js';
+import { SOURCE as fragmentShaderSrc3D } from '../assets/shaders/program0/FRAGMENT.js';
+
+import { SOURCE as vertexShaderSrc2D } from '../assets/shaders/program1/VERTEX.js';
+import { SOURCE as fragmentShaderSrc2D } from '../assets/shaders/program1/FRAGMENT.js';
 // ========================================
 // Browser Compatibility Helpers
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -32,7 +42,7 @@ window.onerror = function(msg, url, line, col) {
   } // Mitigation
 }
 
-// Early Checks
+// Early Checks to ensure the games Core APIs are supported (Not Optional)
 if (!navigator) {
   throw "Navigator API not supported";
 } else if (!AudioContext) {
@@ -42,96 +52,23 @@ if (!navigator) {
 // ========================================================
 let minX, minY, minZ, maxX, maxY, maxZ; // Temporary globals to make strict mode work for now
 let audio;
-let renderer;
+let renderer; // WebGL2Renderer Context, a WIP solution for easier rendering
 let soundPlaying = false;
 
-// GLSL Shaders
-const fragmentShaderSrc2D = `#version 300 es
-precision highp float;
-
-uniform sampler2D uSampler;
-in vec2 vTexture;
-in float vShadow;
-
-out vec4 FragColor;
-
-void main() {
-	vec4 color = texture(uSampler, vTexture);
-	FragColor = vec4(color.rgb * vShadow, color.a);
-	if (FragColor.a == 0.0) discard; // Alpha Test
-}`;
-
-const fragmentShaderSrc3D = `#version 300 es
-precision highp float;
-
-uniform sampler2D uSampler;
-in float vShadow;
-in vec2 vTexture;
-in float vFog;
-
-out vec4 FragColor;
-    
-vec4 fog(vec4 color) {
-	color.r += (0.33 - color.r) * vFog;
-	color.g += (0.54 - color.g) * vFog;
-	color.b += (0.72 - color.b) * vFog;
-	return color;
-} // Fog is hardcoded: remove me later
-
-void main(){
-	vec4 color = texture(uSampler, vTexture);
-	FragColor = fog(vec4(color.rgb * vShadow, color.a));
-	if (FragColor.a == 0.0) discard; // Alpha Test
-}`;
-
-const vertexShaderSrc2D = `#version 300 es
-
-in vec2 aVertex;
-in vec2 aTexture;
-in float aShadow;
-
-out vec2 vTexture;
-out float vShadow;
-
-void main() {
-	vTexture = aTexture;
-	vShadow = aShadow;
-	gl_Position = vec4(aVertex, 0.5, 1.0);
-}`;
-
-const vertexShaderSrc3D = `#version 300 es
-
-in vec3  aVertex;
-in vec2  aTexture;
-in float aShadow;
-    
-out vec2  vTexture;
-out float vShadow;
-out float vFog;
-    
-uniform mat4 uView;
-uniform float uDist;
-uniform vec3 uPos;
-
-void main() {
-	vTexture = aTexture;
-	vShadow = aShadow > 0.0 ? aShadow : 1.0;
-	gl_Position = uView * vec4( aVertex, 1.0);
-
-	float range = max(uDist / 5.0, 8.0);
-	vFog = clamp((length(uPos.xz - aVertex.xz) - uDist + range) / range, 0.0, 1.0);
-}`;
-
+const maxLightLevel = 20; // We are trying a 0 - 20 Light Level System!
+const lightLevelStep = 1 / maxLightLevel; // Step to give to the shader
+let sky = [0.33, 0.54, 0.72] // 0 to 1 RGB color scale (default data is [0.33, 0.54, 0.72])
+let currentSkyLightLevel = 1; // 1 = Max Exposure!
 // =========================================================
-const savebox = document.getElementById("savebox")
-const boxCenterTop = document.getElementById("boxcentertop")
-const message = document.getElementById("message")
-const worldsDOM = document.getElementById("worlds")
-const quota = document.getElementById("quota")
-const canvas = document.getElementById("overlay")
-const hoverbox = document.getElementById("onhover")
-const contentManager = document.getElementById("content-manager")
-const ctx2D = canvas.getContext("2d")
+const savebox = document.getElementById("savebox");
+const boxCenterTop = document.getElementById("boxcentertop");
+const message = document.getElementById("message");
+const worldsDOM = document.getElementById("worlds");
+const quota = document.getElementById("quota");
+const canvas = document.getElementById("overlay");
+const hoverbox = document.getElementById("onhover");
+const contentManager = document.getElementById("content-manager");
+const ctx2D = canvas.getContext("2d");
 
 ctx2D.canvas.width = window.innerWidth
 ctx2D.canvas.height = window.innerHeight
@@ -234,28 +171,13 @@ const textures = {
     redstoneOre: "0g0g90sywflr0wb8hdr0zdjj0f13oi67z13tzldr15wexa71b68mbj1f24cfz1yr4gsf4224211210112444221204444220002121005120011285224442422832422411122110014212412224220862218610141227655342532222100224440001144448524210862122412242021633324442021251001440021122222444401834422110044168655321442832224332122221124442244211122222221422222244",
     lapisOre: "0g0ga04hvenz04hvl6n04ihywv066fd3306r2ozj08z4sfz0sywflr0wb8hdr0zdjj0f13tzldr9889877876778999886669999886668787454386777813889889926329989977788776679867978889866428862576797861242398238888723679978767799993189872643386678998687222236258686627661237725788300799668893588779906612366339998700381039799887783339899877788888899888888899",
     emeraldOre: "0g0g7004swsf06mdmv30sywflr0wb8hdr0zdjj0f13tzldr1ohjdhb5445432232334555443445615442334343223310333422445555225555546133344361324555104445441061243255353445551054434444332232552323355555545461442244534444441053615224243433223310361344444556155551044223455103322553261334455444344441045554455433344554443544444455",
-    coalBlock: "0g0g501e50xr03md24f05ul3b308mtq0v0bf3ri73322122002210012222121000210123321000122000022221001243222202210001233222100210020222221000001220132211001122222022210122343221002110123322210000012123221103200212122210002211232102112210012230002113432123322000123420023221000123210012221001222212212221000",
     ironBlock: "0g0gb1dawbnj1fj5rlr1hrdssf1m7r1mn1nlyvwf1pa4wsf1qe8xdr1s2ey9r1t6iyv31tqkz5r1ver01r32233333333222232aaaaa9998777772277777777777777105555555666444402aaaaaa999777771277777777777777105555566664444402aa9999977777771277777777777777105555555566644402aaaaaa999977771277777777777777105555556666444402aaaa9999777777127777777777777712222222112111111",
     goldBlock: "0g0g91kr8um71mphb0f1w77ain1xakkqn1ypvwu71yr43jz1yzk7pb1z0cef31z10mwv2222332223333221285577888776688125664877623324812564877462224471374777462264467137777462267762302877444667762330287444664462232037444664466222613744664466662461364667766666742032667762262776203267762332446261334462332666224132322332662264701101100011001100",
     diamondBlock: "0g0g90434min061d2in0h634zj0l2fpxb0sagdtr0vckf0f1845xbz1ndl24f1z141z33333223332222331378866777664477138445766432235713845766543335561265666543345546126666543346643203766555446643220376555445543323026555445544333412655445544443541245446644444653023446643343664302346643223554341225543223444335123233223443345601101100011001100",
-    redstoneBlock: "0g0g50vx660v153407319j36671gh49a71runlz34444444444444444433433222334333443342202222232344332311001120234443211012011244443210000000042344302100000011134421100000000122442231000000111344324110210111234432110004001224443321101001110344322211111122224443124211022323443334433223333344444444444444444",
-    lapisBlock: "0g0gd05lqqkf06zt0xr07js8hr07tw35r084kzr308e6ein08e99fj08yjpq708ys8ov0an2j270c0w4cf0dp94hr0fdf5kv98999989cb848484878b78736733677197b8867767623765967877377863366597687666378a63759a77776636a7736197a767676236763596763666a6233625c636636376632775c633687363332371963237873676327186672236338763619763722332677630877633332336667143766633633367708111111610220000",
     emeraldBlock: "0g0g606lfrb306mdmv307ei5fj07xmdbz0iaro5b10c5ptr0000000000000002055555454551144305000000200002430404555411114243050500000002425305050555445212130405054411421203040405451142120305040411020202130404041122120213042105410112420301212222222242030405510000441213012222222222224301011001110014532333333333333332",
-    acaciaLogSide: "0g0g60ma181r0oi99fj0pcavi70t8nim70y9464f139ktmn3143304330341432315230523034133230223052313113324032313232301342413230325232314343134131524131432313422343433143230343243342324331053324324242433315332332414303333432303231430331343230533053135133424052303323531343314231333343143340313114334314134131331432",
-    acaciaLogTop: "0g0gb0j7rlz30kvxmgv0ma2nen0o889hb0t8nim713rcxdr16jehof18hk3r31c3oo3j1fprugv1hy2osf432332211231433449999898a889999329556676777766a2395aa999989996910869888888889782197986677668968318688588886886932879868778789784487986876868968448798688887886833869866567789782287988888888968219799899999a96811976766666666691099988988a8899933412233444322114",
-    acaciaPlanks: "0g0g711t8qgv13rcxdr16jehof18hk3r31c3oo3j1fprugv1hy2osf5456666656666652554423455544553345554543333445522112210011010010563666636665443545543432344555543345444255544333001121000011121056654466656666535455554333434332654433334444335300122100012110006556655366646566445533433555544443345432554333330110012221010000",
     birchLogSide: "0g0g80f1fcov0qqliwv1gxap6n1o60u7z1ptrf271uar6db1uum5mn1z141z36643366634663366346666777634443677744367666636777732100136777737366321101377631211336344363331001266344677766532343777777334556376336775577775777764455577766336336777766634477636777767777577634436633667553210026677763443100000133377761132116331677764336336",
     birchLogTop: "0g0ga0mk6h3316m5am719xxgqn1cg9ce71f8hx4v1jowirj1nv4jcv1nvimm71tgjy7z1z141z39818811001809889966665657556666816223343444433718627766665666360153655555555645106465334433563580535525555355368154653544545645995465354353563599546535555455358853653323445645115465555555563510646656666676350064343333333336016665565575566688901188999811009",
     birchPlanks: "0g0g717znmrj19xxgqn1cg9ce71f8hx4v1jowirj1nv4jcv1nvimm75456666656666652554423455544553345554543333445522112210011010010563666636665443545543432344555543345444255544333001121000011121056654466666666535455554333434332654433334444335300122100012110006356655366636566445533433554544443345432554333330110012221010000",
-    darkOakLogSide: "0g0g60besef30dcwlbz0e6y70f0hj7ev30klcs8v0oho0e73143304330341432315230523034133230223052313113324032313232301342413230325232314343134131524131432313422343433143230343243342324331053324324242433315332332414303333432303231430331343230533053135133424052303323531343314231333343143340313114334314134131331432",
-    darkOakLogTop: "0g0gb08ml79b0auqebj0dcmqdb0e6y70f0f117gf0g4r4730h8wirj0hj7ev30kb0idb0lz2akf0n393wf741441100140744779999898a889999419225565666655a1492aa999989995903859888888889681096985566558958408588288885885941869858668689687786985865858958778698588886885844859855256689681186988888888958109699899999a95800965655555555590399988988a8899944701144777411007",
-    darkOakPlanks: "0g0g70bejy0v0dcmqdb0g4r4730h8wirj0kb0idb0lz2akf0n393wf5456666656666652554423455544553345554543333445522112210011010010563666636665443545543432344555543345444255544333001121000011121056654466666666535455554333434332654433334444335300122100012110006356655366636566445533433554544443345432554333330110012221010000",
-    jungleLogSide: "0g0g90h96cxr0htdywv0m9k4xr0ne277j0orqc5b0rkbldr0sxvim70wunksf0ys83cv4688422222666444444114414441001111137510011441866644668842422224146644411143573444422235311010006646442222444886101000466412222444688411068844441122575311222100755444666664355741100112241201661144866643341111623533422111444644111004661664444664122244442222",
-    jungleLogTop: "0g0g90h96cxr0htdywv0rkbldr0ys83cv160fym7188mku71batekf1f77h1b1h5ei2n3212210011213223377776768667777217444454555544812748877776777470164766666666756107576445544674620646646666466472165764655656756336576465464674633657646666566462264764444556756106576666666674600757767777787460175454444444447117776676686677722310122333211013",
-    junglePlanks: "0g0g70sxkd1b0xdxkov160fym7188mku71batekf1f77h1b1h5ei2n5456666656666652554423455544553345554543333445522112210011010010563666636665443545543432344555543345444255544333001121000011121056654466666666535455554333434332654433334444335300122100012110006356655366636566445533433554544443345432554333330110012221010000",
-    spruceLogSide: "0g0g60csc9vj0cskpof0dmmb5r0geuxof0lf4i670nnb4sf3243304330342431325130513034233130113051323223314031323131302341423130315131324343234232514232431323411343433243130343143341314332053314314141433325331331424303333431303132430332343130533053235233414051303313532343324132333343243340323224334324234232332431",
-    spruceLogTop: "0g0g80ix87pb0nnb4sf0p1n6db0qzu7zz0v5xypr0xy569r106bshr11ueyv31012101120110111066665657556666016223343444433711627766665666361153655555555645106465334433563501535525555355361154653533545645115465353353563510546535555455350153653323445645115465555555563510646656666676350164343333333336116665565575566611011101120110211",
-    sprucePlanks: "0g0g80nnb4sf0p1n6db0qzu7zz0v5xypr0xe36rj0xy569r106bshr11ueyv36567777767777762665523566655663356665643333556622112210011010010673777737776553656653532355666653356555266655333001121000011121067765577777777636566665333535332765533335555336300122100012110007367766377737677556633533665655553356532665333330110012221010000",
     sand: "0g0g61m6x62n1nb9nnj1opn5dr1r80f7j1scbi0v1u0izgf4223213232132313122121130142502432011422222121122331213133132122125213232322122321223332123122121421151211022121212212212111242112322310131232124212221120212231202321232232012311223212331112121213132145321123323230232323221223235332323203223232332321223232",
     gravel: "0g0g80rufq4f0vqwlbz0zxiprz125i9rz15rvcan1627mkf1d0twqn1dackxr0341152512122521522122312102333522103133522351352232321522512322132741122210253202140133526552213104226515530122553253522311225353521223310256122311652152322132123553102521325022533562113225212132222537415525331025232422215235323311243310351274122232321212",
     blackConcrete: "0g0g40149on3028826702882yn028dp8f1330112022012232303130022112212111032203010022012122012222321221011223213030101033110011212233120230013131003200032022012002002112233122202312230200102211312102222122132011021201223320211021220121122122321331201102120210001220112022023302312210123220102110",
@@ -291,28 +213,6 @@ const textures = {
     yellowConcrete: "0g0g41to1w5b1us09of1us5vy71us5wqn2111111122222221232021021213122222211020112110121211022201012212122222312211221122213110202011133121132211112221221211211111112120231210211111201132001211212111211102220222021102211223011100222121202222222132111211111112111112021121120222221222011012122121",
     yellowWool: "0g0gj1us5vy71usbj0f1vw9wjj1vwfitb1vwfjlr1vwl5vj1vwl6nz1vwqsxr1x0p6gv1x0utj31x10fsv1x10glb1x163nj1y54h6n1y5a48v1y5a51b1y5frb31y5fs3j1y5lf5r45239e44bc0299219biiec7731470158eg78hga7cgcchicb95dg759g47gg95ifb849ed005942ee20104g404540571436iied9989eib7iica55iicbgf34dgbbgfcc15fb4557419722576e007b4bii8ciifgccigcbge79b92924bb55ec345b006b5500fh209e9ciib1cbhifc9708cg88gihh97g9bdie45ac5314fa35gh85bf34eg",
     bookshelf: "0g0gt03fxnnj04laqdb0a0ot1b0b6j6db0c8r6db0deww730df88ov0egz6rj0gpo9330ht5kov0k20av30nf40zj0pnc1dr0qoh8fz0sy416n0w8kcn30wc5n9b0yicu0v11vb08v11vskcf13z03jz16atkvz17fehvj1as1ce71czhmv31e50qv31g6nvgf1gbtpfj1ks44qnommllhlllmmmmlmoo44477444772534oo799kk999ni9637olkffqk99gpjk631lsqffqk64gnik631soqfdqf6gcngf651ookd9kf3c7igf350mlorrsssroorrroolollmmhmllmmmllhoo77227cb7427724ooqk763gck99cb97olpj063gckq4gc10hsqk063a8fqkgcpjsoqf065a87kqgc10omkfe35ccefkcb03oorrsssroorrrrooo",
-    netherBricks: "0g0g706o77cv08w9lhb0b4bzlr0dcedq70fkb4sf0gof6670iwn6kf0000000000000000556515666555165532340433333405333432133223321333000111000001110015666544155545540543333306433333143333221433243211000001110000014416641644164414330433063304330423143314321333140111011101110111464414666644166433330433344303333322033333330333",
-    redNetherBricks: "0g0g70c7i51b0efew3j0fjiwov0ive1a70nbiubj0svgd1b0v3ir5r0000000000000000556515666555165532340433333405333432133223321333000111000001110015666544155545540543333306433333143333221433243211000001110000014416641644164414330433063304330423143314321333140111011101110111464414666644166433330433344303333322033333330333",
-    netherQuartzOre: "0g0gc0hs27zz0m7vq4f0m81d6n0ncb0u70rsft330u2845b0v4m7sv10p0npb1bug2671e4e1vj1n1fv9b1smb9xb1312426644044643344320246610442164643068a921424676466baa866314246766ba8674662643166895678a8544641466565ba95146866310289856642b9742469b814466ab862467ba624646b952364a950268665602426852108b61623214642649a9164941364667689238976124667423804646442246624630246644",
-    netherrack: "0g0g70hs27zz0m7vq4f0m81d6n0ncb0u70rsft330v4m7sv10p0npb1312425544044543344320245210442154543012432142456545423545531424565424566455254315431566554244541452054554214565531024541154246642454221445541452456540245455112354554025655200242254210254102321454254122154541354556512234565124556423204545442245524530245544",
-    netherWartBlock: "0g0g60of09vj0suze9r0xana4f1539r7j1brbain1g7rcvz0122001222532010222235202110022112111222202202320122201003202242042220021211122103224300222201201022220122252002210210211223102220000221222200222022221132210202012201104100222102201012211021042230122022012022212012022002220222202202220234022205220322022302",
-    quartzBlockBottom: "0g0g31sm5mv31tq9ngf1tqfbb32222221111000222121111000002222111100000012222110000001122221110001111000110000011100000110000011111222200001111222222211111111222211000112222220110012222222211222222222210000022222211000000222222110110112222111100112222221100101122222111101222222222210000",
-    quartzBlockSide: "0g0g61p9z6kf1qe37y71sm5mv31tq9ngf1tqfbb31uujcov5555555555555555543333222224444153322222234444304222223344433330423333222332222153322222332222215333444422223330544444433333333054433222334444405332234444444430544444444432222154444433222222405444332332334440533322334444443042323344444333311100011111110000",
-    quartzBlockTop: "0g0g61p9z6kf1qe37y71sm5mv31tq9ngf1tqfbb31uujcov5555555555555555543333222224444153322222234444304222223344433330423333222332222153322222332222215333444422223330544444433333333054433222334444405332234444444430544444444432222154444433222222405444332332334440533322334444443042323344444333311100011111110000",
-    quartzPillar: "0g0g41qe37y71sm5mv31tqfbb31uujcov0202031312130212020302130313031202131313120313020313130213031313131303120302121313020312031203131302131313020303120313031303130312130303131303120213131302131212131312130202120313021213120302031302120313031303130202130303131303120313031213120212131302121202",
-    quartzPillarTop: "0g0g51p9z6kf1qe37y71sm5mv31tqfbb31uujcov1021223242413020222122211221122002223434434322223123443344443211113412222221431242442344443244222243242222424423423324244142441222442424324234143244242211423322224423334432442421341222222143111123444444443213222234444443222002211222122112221203142423220200",
-    chiseledQuartzBlock: "0g0g61p9z6kf1qe37y71sm5mv31tq9ngf1tqfbb31uujcov0444404333022440043331222204444003322111000444300222223004443331023011101110022103315544432202200110441100220000554444144033344544433204314444440111230011441101054044444432154104400110111004401444454005544440133321100004443002323155440333300444414444132220",
-    chiseledQuartzBlockTop: "0g0g51p9z6kf1qe37y71tq9ngf1tqfbb31uujcov0334314232133420021100022000112002044203204421200204120420412021020113032020003102233304212233200000000421110000323433442223344422222222222222220000001321000001044343142143222104011204214110201302130420313020120234032023403002111003201100400222314222133420",
-    chiseledStoneBricks: "0g0g70oigd8f0qqoef30sz21vj0xf6vpb0yjgikf11vskcf17g711b6666655666566562644424444224444054110000111123205206665566561530640654434442154064064322334315405205430005421630540632000643062052054300053206306215435655420630641644545432053064163232322215406421110000011530556655666655543053343234433232202000000000000000",
-    smoothStone: "0g0g70wb8hdr0yjgikf12zwkxr17gcnb318kgnwf1asop331d0wq9r1011002200220121054556666553445204334454444555501666455566655442255444545666645006555555554343412556664665545550243343443434466116656545555455620555554566656661054544334454454215555666665566622444566454433452165445556555455104456665566544401022112221000121",
-    soulSand: "0g0g60egz94v0ht5n270k181z30oho3jz0sxyiv30xeekfz3130033202100434433135531100234004241451321012411423432542212230032442154212211332234104322433212002314322315332220023322345513032322211233445304302332013540423202342330242132302341043213032020354044321232020431445421112202350345131123302354202432103212415",
-    glowstone: "0g0g80u1fugv0v5phbz10pn01r11uj6db1kqv1tr1x1ncov1y6jzlr1y711j35420045440276423654011240346654024032201131054033034542017510033014766405664136502566552454236751004554020132450531024010352320465230213276501576442654346640335420454220452013000320356304012311354016754036520357660354215764034654201003242013154216521100013",
-    andesite: "0g0g60sywflr0wb8hdr0yjgikf11vsl4v17gcnb31asolxb2114332104423221245323445330122411334410122443224410133445433231235442223333211433323243210013432324542104543333423310154332333433114143343224533143342221154333332321101544332201331254422332333443443233212331543333334533112233301244323223541321322323234432",
-    diorite: "0g0g60xfchz311vskcf19of1fj1gd8su71ktouf31smgykf1222352233524355201322135345543151355101325543235255312553213225351243153532255245355541332335235332455214554102243123234555521232203255443244250155213551234541244310134335513055510144221512352542543554223223212343125454353242115521455321245235554124421255",
-    granite: "0g0ga0l56fi70plgu0v0yhw0sf1424tmn17eb8cf1aqna4f1e3al8f1e3x7un1jnje2n1qczoxr7434244344046445431548244224422341444335249241464143446145532344234232113754334244255342143347242445524442555322424474302155243346344255522344245535242552464245557314243844212555415442024425030323244424324439435524312355344448553215435547245544733324244425",
-    polishedAndesite: "0g0g90oilzi70sz23gf0v7a3270yjgjcv10ru60v11vyakf11w3ugv19okmwv1e4v30f7878888888788785843334442443134084444443376644307416763343446440844442456433334083344333424433318444634666554320833433332123444184562444466776608434433443344540844667633366444081444444664466208466654333134760844433334465334083333664444334406100000000110000",
-    polishedDiorite: "0g0g80qqu0ov0xfi5tr11vy6m71asubcv1f94t1b1jpkttr1o60w731ri7bpb7776677777666774764556657643564166764466577434506565333565454441675334576435457176544567733456607566767655346450744765756564534063556655467534516566544565544761664334655465666075673555775644517557654375466340745654576435744072445566545654512101110001100110",
-    polishedGranite: "0g0g90l56fi70plgu0v0yhw0sf1424tmn17eb8cf1aqna4f1e3al8f1e3x7un1jnje2n8888786866866565843344345444334374744554442446418444243334553342844444453344443262343344443734428345543644444431844444423445544263422344554433636444433443344442734444444464334284473344244442318455444445543341633443264434455264443444334447412111001110111100",
 }
 
 const BLOCK_COUNT = blockData.length;
@@ -374,40 +274,6 @@ function random(min, max) {
 
 let caveNoise;
 
-function PVector(x, y, z) {
-    this.x = x
-    this.y = y
-    this.z = z
-    this.set = function(x, y, z) {
-        if (y === undefined) {
-            this.x = x.x
-            this.y = x.y
-            this.z = x.z
-        } else {
-            this.x = x
-            this.y = y
-            this.z = z
-        }
-    }
-
-    this.normalize = function() {
-        let mag = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z)
-        this.x /= mag
-        this.y /= mag
-        this.z /= mag
-    }
-    this.add = function(v) {
-        this.x += v.x
-        this.y += v.y
-        this.z += v.z
-    }
-    this.mult = function(m) {
-        this.x *= m
-        this.y *= m
-        this.z *= m
-    }
-}
-
 function fill(r, g = r, b = r, a = 1) {
     ctx2D.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
 }
@@ -430,7 +296,7 @@ function line(x1, y1, x2, y2) {
     ctx2D.lineTo(x2, y2)
 }
 
-function text(txt, x, y, h) {
+function text(txt = 'NO TEXT DATA GIVEN', x, y, h) {
     h = h || 0
 
     const lines = txt.split("\n");
@@ -440,7 +306,7 @@ function text(txt, x, y, h) {
     }
 }
 
-function textSize(size) {
+function textSize(size = '24') {
     ctx2D.font = size + 'px Monospace' // Default is monospace
 }
 
@@ -451,6 +317,7 @@ function textAlign(mode = "left") {
 function strokeWeight(num) {
     ctx2D.lineWidth = num
 }
+
 const ARROW = "arrow"
 const HAND = "pointer"
 const CROSS = "crosshair"
@@ -459,7 +326,7 @@ function cursor(type) {
     canvas.style.cursor = type
 }
 
-randomSeed(Math.random() * 10000000 | 0)
+randomSeed(Math.random() * 10000000 | 0);
 
 async function createDatabase() {
     return await new Promise(async (resolve, reject) => {
@@ -551,11 +418,8 @@ function save() {
     }).then(() => world.edited = Date.now()).catch(e => console.error(e))
 }
 
-//globals
-//{
-const version = "INDEV_2";
+// Globals
 const reach = 5 // Max distance player can place or break blocks
-let sky = [0.33, 0.54, 0.72] // 0 to 1 RGB color scale (default data is [0.33, 0.54, 0.72])
 let superflat = false
 let trees = true
 let caves = true
@@ -570,7 +434,6 @@ let settings = {
     renderDistance: 4, // Render Distance (4 Chunks is default)
     fov: 70, // Field of view in degrees
     mouseSense: 100 // Mouse sensitivity as a percentage of the default
-  
 }
 
 let locked = true
@@ -681,8 +544,8 @@ const html = {
     }
 }
 
-let screen = "main menu"
-let previousScreen = screen
+let screen = "main menu";
+let previousScreen = screen;
 
 function changeScene(newScene) {
     if (screen === "options") {
@@ -724,9 +587,9 @@ let glUniforms // Originally glCache, renamed for clarity
 let worlds, selectedWorld = 0
 let freezeFrame = 0
 let p
-let vec1 = new PVector(),
-    vec2 = new PVector(),
-    vec3 = new PVector()
+let vec1 = new Vector3(),
+    vec2 = new Vector3(),
+    vec3 = new Vector3()
 let move = {
     x: 0,
     y: 0,
@@ -760,7 +623,7 @@ function play() {
     changeScene("play")
 }
 
-let gl; // webGL2 Context
+let gl; // WebGL2 Context (Fixes scope issues)
 
 function getPointer() {
     if (canvas.requestPointerLock) {
@@ -900,8 +763,6 @@ const shapes = {
         rotate: true
     },
 }
-
-win.shapes = shapes // Debug Scope, remove later
 
 function compareArr(arr, out) {
     let minX = 1000
@@ -1567,7 +1428,7 @@ class Camera {
         aux.normalize()
         cross(Y, aux, aux)
         this.frustum[4].set(aux.x, aux.y, aux.z)
-    }
+    } // This probably manages frustrum culling
     canSee(x, y, z, maxY) {
         x -= 0.5
         y -= 0.5
@@ -1590,7 +1451,7 @@ class Camera {
             }
         }
         return true
-    }
+    } // Frustrum Culling?
 }
 
 function trans(matrix, x, y, z) {
@@ -2802,6 +2663,7 @@ class Chunk {
         this.optimized = false
         this.generated = false; // Terrain
         this.populated = superflat; // Trees and ores
+        this.lit = false; // Has lighting been calculated?
         this.lazy = false
         this.edited = false
         this.loaded = false
@@ -2889,7 +2751,7 @@ class Chunk {
                 return
             }
         }
-    }
+    } // To-do: Optimize Generation
   
     populate() {
         randomSeed(hash(this.x, this.z) * 210000000)
@@ -3597,12 +3459,8 @@ class World {
         caves = options >> 3 & 1
         trees = options >> 4 & 1
 
-        let version = data.shift()
-        this.version = version
-
-        // if (version.split(" ")[1].split(".").join("") < 70) {
-        // 	alert("This save code is for an older version. 0.7.0 or later is needed")
-        // }
+        let _v = data.shift(); // Version of the World (I renamed it because of globals)
+        this.version = _v
 
         let pallete = data.shift().split(",").map(n => parseInt(n, 36))
         this.loadFrom = []
@@ -3915,15 +3773,15 @@ function initButtons() {
     Button.add(width / 2, height / 2 + 145, 400, 40, "Content", "main menu", nothing, always, "Mod Support is still being worked on.")//r => changeScene("content"))
   
     // Creation menu buttons
-    Button.add(width / 2, 135, 300, 40, ["World Type: Normal", "World Type: Superflat"], "creation menu", r => superflat = r === "World Type: Superflat")
-    Button.add(width / 2, 185, 300, 40, ["Trees: On", "Trees: Off"], "creation menu", r => trees = r === "Trees: On", function() {
+    Button.add(160, 135, 300, 40, ["World Type: Normal", "World Type: Superflat"], "creation menu", r => superflat = r === "World Type: Superflat")
+    Button.add(160, 185, 300, 40, ["Trees: On", "Trees: Off"], "creation menu", r => trees = r === "Trees: On", function() {
         if (superflat) {
             this.index = 1
             trees = false
         }
         return superflat
     })
-    Button.add(width / 2, 235, 300, 40, ["Caves: On", "Caves: Off"], "creation menu", r => caves = r === "Caves: On", function() {
+    Button.add(160, 235, 300, 40, ["Caves: On", "Caves: Off"], "creation menu", r => caves = r === "Caves: On", function() {
         if (superflat) {
             this.index = 1
             caves = false
@@ -3931,9 +3789,9 @@ function initButtons() {
         return superflat
     })
 
-    Button.add(width / 2, 285, 300, 40, "Game Mode: Creative", "creation menu", nothing, always, "This will come with due time.")
-    Button.add(width / 2, 335, 300, 40, "Difficulty: Peaceful", "creation menu", nothing, always, "Soon(TM)")
-    Button.add(width / 2, height - 90, 300, 40, "Create New World", "creation menu", r => {
+    Button.add(160, 285, 300, 40, "Game Mode: Creative", "creation menu", nothing, always, "This will come with due time.")
+    Button.add(160, 335, 300, 40, "Difficulty: Peaceful", "creation menu", nothing, always, "Soon(TM)")
+    Button.add(width / 2, height - 90, width - 20, 40, "Create New World", "creation menu", r => {
         world = new World()
         world.id = Date.now()
         let name = boxCenterTop.value || "World";
@@ -3959,7 +3817,7 @@ function initButtons() {
         world.chunkGenQueue.sort(sortChunks)
         changeScene("loading")
     })
-    Button.add(width / 2, height - 40, 300, 40, "Cancel", "creation menu", r => changeScene(previousScreen))
+    Button.add(width / 2, height - 40, width - 20, 40, "Cancel", "creation menu", r => changeScene(previousScreen))
 
     // Loadsave menu buttons
     const selected = () => !selectedWorld || !worlds[selectedWorld]
@@ -4680,10 +4538,11 @@ function initWebgl() {
 
     modelView = new Float32Array(16)
     glUniforms = {}
-    
+  
     // Create Program3D
     const vertShader3 = renderer.createVertexShader(vertexShaderSrc3D);
     const fragShader3 = renderer.createFragmentShader(fragmentShaderSrc3D);
+
     programs[0] = renderer.createProgram(vertShader3, fragShader3);
 
     // Create Program2D
@@ -4692,26 +4551,33 @@ function initWebgl() {
     programs[1] = renderer.createProgram(vertShader2, fragShader2);
 
     // Uniform Setup
-    renderer.setProgram(programs[1]);
+    renderer.setProgram(programs[1]); // 2D Uniforms
+  
     glUniforms.uSampler2 = renderer.getUniform("uSampler");
     glUniforms.aTexture2 = renderer.getAttrib("aTexture");
     glUniforms.aVertex2 = renderer.getAttrib("aVertex");
     glUniforms.aShadow2 = renderer.getAttrib("aShadow");
+  
+    renderer.setProgram(programs[0]); // 3D Uniforms
 
-    renderer.setProgram(programs[0]);
+    glUniforms.uFogColor = renderer.getUniform("uFogColor");
     glUniforms.uSampler = renderer.getUniform("uSampler");
     glUniforms.uPos = renderer.getUniform("uPos");
     glUniforms.uDist = renderer.getUniform("uDist");
     glUniforms.aShadow = renderer.getAttrib("aShadow");
+    glUniforms.aLightValue = renderer.getAttrib("aLightValue"); // Unused Value that will be the light level of the block in question, I will try to base the code off of aShadow
+    glUniforms.uSkyLight = renderer.getUniform("uSkyLight"); // Unused value to input the current skylight level (for lighting engine)
     glUniforms.aTexture = renderer.getAttrib("aTexture");
     glUniforms.aVertex = renderer.getAttrib("aVertex");
-
-    gl.uniform1f(glUniforms.uDist, 1000)
-
+  
+    gl.uniform1f(glUniforms.uDist, 1000); // Magical Frustrum Culling Thing that I haven't bothered to look at
+    gl.uniform1f(glUniforms.uSkyLight, currentSkyLightLevel); // Current Sky Light Level, as a float because I am
+    gl.uniform3f(glUniforms.uFogColor, sky[0], sky[1], sky[2]); // Magical Fog Uniform!
+  
     //Send the block textures to the GPU
     initTextures()
     initShapes()
-
+  
     // These buffers are only used for drawing the main menu blocks (Removing them crashes mid-game?)
     sideEdgeBuffers = {}
     for (let side in shapes.cube.verts) {
@@ -4734,7 +4600,7 @@ function initWebgl() {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indexOrder, gl.STATIC_DRAW);
 
-    //Tell it not to render the back sides of blocks
+    // Cull Back Faces
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
 
@@ -4747,10 +4613,6 @@ function initWebgl() {
 }
 
 function initBackgrounds() {
-    // Home screen background
-    use3d()
-    gl.clearColor(sky[0], sky[1], sky[2], 1.0)
-    gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT)
     let pixels = new Uint8Array(width * height * 4)
     const w = width * 4;
 
@@ -4790,7 +4652,7 @@ function initBackgrounds() {
 function initPlayer() {
     p = new Camera()
     p.speed = 0.075
-    p.velocity = new PVector(0, 0, 0)
+    p.velocity = new Vector3(0, 0, 0)
     p.pos = new Float32Array(3)
     p.sprintSpeed = 1.5
     p.flySpeed = 2.5
@@ -4916,26 +4778,26 @@ function initEverything() {
 // Define all the scene draw functions
 (function() {
     function title() {
-        const title = "Blockverse 2"
+        const w2 = width / 2;
         const font = "VT323,monospace";
         strokeWeight(1)
         textAlign('center');
 
         ctx2D.font = "bold 120px " + font
         fill(30)
-        text(title, width / 2, 158)
+        text("Blockverse 2", w2, 158)
         fill(40)
-        text(title, width / 2, 155)
+        text("Blockverse 2", w2, 155)
         ctx2D.font = "bold 121px " + font
         fill(50)
-        text(title, width / 2, 152)
+        text("Blockverse 2", w2, 152)
         fill(70)
-        text(title, width / 2, 150)
+        text("Blockverse 2", w2, 150)
         fill(90)
         ctx2D.font = "bold 122px " + font
-        text(title, width / 2, 148)
+        text("Blockverse 2", w2, 148)
         fill(110)
-        text(title, width / 2, 145)
+        text("Blockverse 2", w2, 145)
     }
 
     const clear = () => ctx2D.clearRect(0, 0, canvas.width, canvas.height)
@@ -5037,10 +4899,10 @@ function initEverything() {
 
     drawScreens["creation menu"] = () => {
         dirt()
-        textAlign('center');
+        textAlign('right');
         textSize(20)
         fill(255)
-        text("Create New World", width / 2, 20)
+        text("World Creator", width - 10, 20)
     }
 
     drawScreens["loadsave menu"] = () => {

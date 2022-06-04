@@ -1,3 +1,6 @@
+// Constants
+const IMPORT_PREFIX = `../../`; // Fix me for minification!
+
 // Core Renderer
 class WebGL2Renderer {
   // Privates
@@ -34,13 +37,13 @@ class WebGL2Renderer {
     }
   }
 
-  // Compiling Shaders
+  // Compiling Shaders/Programs
   createVertexShader(source) {
     const shader = this.gl.createShader(this.gl.VERTEX_SHADER);
     this.gl.shaderSource(shader, source);
     this.gl.compileShader(shader);
     if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-      throw this.gl.getShaderInfoLog(shader);
+      throw this.gl.getShaderInfoLog(shader)+"\nVERTEX_SHADER_ERR";
     } else {
       return shader;
     }
@@ -51,7 +54,7 @@ class WebGL2Renderer {
     this.gl.shaderSource(shader, source);
     this.gl.compileShader(shader);
     if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-      throw this.gl.getShaderInfoLog(shader);
+      throw this.gl.getShaderInfoLog(shader)+"\nFRAGMENT_SHADER_ERR";
     } else {
       return shader;
     }
@@ -69,6 +72,58 @@ class WebGL2Renderer {
     }
   }
 
+  // Import Shaders
+  importShader(src) {
+    let s = `${IMPORT_PREFIX}${src}`;
+    if (s.includes(`${IMPORT_PREFIX}./`)) { s.replace(`${IMPORT_PREFIX}./`, IMPORT_PREFIX); } // Unsure if this is needed
+
+    let shaderType, shaderSource, platform, shader;
+    import(s).then((m) => {
+      shaderType = m.SHADER_TYPE;
+      shaderSource = m.SOURCE;
+      platform = m.PLATFORM;
+
+      // Verification
+      if (!platform) {
+        console.warn(`Shader at ${s} did not specify a platform! Assuming WEBGL2...`);
+        platform = 'WEBGL2';
+      }
+
+      if (!shaderType) {
+        console.error(`Shader at ${s} did not specify type.`);
+        return null;
+      }
+
+      if (!shaderSource) {
+        console.error(`Shader at ${s} did not specify any source.`);
+        return null;        
+      }
+
+      // Create the shader
+      switch (shaderType) {
+        case 'VERTEX':
+          shader = this.createVertexShader(shaderSource);
+          break;
+
+        case 'FRAGMENT':
+          shader = this.createFragmentShader(shaderSource);
+          break;
+
+        default:
+          console.error(`Shader at ${s} did not give a valid type.`);
+          return null;
+      }
+
+      // If the shader is valid, return it
+      if (!shader) {
+        console.error(`Shader at ${s} failed to compile.`);
+        return null;
+      } else {
+        return shader; // It worked!
+      }
+    });
+  }
+  
   // Uniform/Attrib Helpers
   setProgram(program) {
     this.gl.useProgram(program);

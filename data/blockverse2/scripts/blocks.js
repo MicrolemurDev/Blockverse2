@@ -1,4 +1,4 @@
-const blockData = [{
+export const blockData = [{
     name: "air",
     id: 0,
     textures: [],
@@ -49,17 +49,11 @@ const blockData = [{
 }, {
     name: "emeraldOre"
 }, {
-    name: "coalBlock"
-}, {
     name: "ironBlock"
 }, {
     name: "goldBlock"
 }, {
     name: "diamondBlock"
-}, {
-    name: "redstoneBlock"
-}, {
-    name: "lapisBlock"
 }, {
     name: "emeraldBlock"
 }, {
@@ -68,30 +62,10 @@ const blockData = [{
     name: "oakLog",
     textures: ["logTop", "logSide"],
 }, {
-    name: "acaciaPlanks"
-}, {
-    name: "acaciaLog",
-    textures: ["acaciaLogTop", "acaciaLogSide"],
-}, {
     name: "birchPlanks"
 }, {
     name: "birchLog",
     textures: ["birchLogTop", "birchLogSide"],
-}, {
-    name: "darkOakPlanks"
-}, {
-    name: "darkOakLog",
-    textures: ["darkOakLogTop", "darkOakLogSide"],
-}, {
-    name: "junglePlanks"
-}, {
-    name: "jungleLog",
-    textures: ["jungleLogTop", "jungleLogSide"],
-}, {
-    name: "sprucePlanks"
-}, {
-    name: "spruceLog",
-    textures: ["spruceLogTop", "spruceLogSide"],
 }, {
     name: "whiteWool"
 }, {
@@ -159,46 +133,4 @@ const blockData = [{
 }, {
     name: "bookshelf",
     textures: ["oakPlanks", "bookshelf"]
-}, {
-    name: "netherrack"
-}, {
-    name: "soulSand"
-}, {
-    name: "glowstone"
-}, {
-    name: "netherWartBlock"
-}, {
-    name: "netherBricks"
-}, {
-    name: "redNetherBricks"
-}, {
-    name: "netherQuartzOre"
-}, {
-    name: "quartzBlock",
-    textures: ["quartzBlockBottom", "quartzBlockTop", "quartzBlockSide"]
-}, {
-    name: "quartzPillar",
-    textures: ["quartzPillarTop", "quartzPillar"]
-}, {
-    name: "chiseledQuartzBlock",
-    textures: ["chiseledQuartzBlock", "chiseledQuartzBlockTop"]
-}, {
-    name: "chiseledStoneBricks"
-}, {
-    name: "smoothStone"
-}, {
-    name: "andesite"
-}, {
-    name: "polishedAndesite"
-}, {
-    name: "diorite"
-}, {
-    name: "polishedDiorite"
-}, {
-    name: "granite"
-}, {
-    name: "polishedGranite"
 }, ];
-
-// Exports
-export { blockData }
