@@ -6,4 +6,4 @@ A Fork of MineKhan aimed at removing legacy features and improving the game to m
 - EMCA 2020 Support (ES6/ES7 may be possible with Babel)
 ## Offical Releases
 - Production: https://microlemurdev.github.io/blockverse2
-- INDEV: https://blockverse2.microlemurdev.repl.co/
+- INDEV: https://blockverse2.microlemurdev.repl.co/Blockverse2/
