@@ -20,7 +20,7 @@ uniform vec3  uPos; // ???
 void main() {
 	vTexture = aTexture;
   vLightValue = aLightValue;
-	vShadow = aShadow > 0.0 ? aShadow : 1.0; // Shadow calculation
+	vShadow = aShadow > 0.0 ? aShadow : 0.5; // Shadow calculation
 	gl_Position = uView * vec4( aVertex, 1.0);
 
 	float range = max(uDist / 5.0, 8.0); 

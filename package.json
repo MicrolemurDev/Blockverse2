@@ -1,0 +1,25 @@
+{
+  "name": "blockverse2",
+  "version": "0.0.4",
+  "description": "A New Voxel Game for the Web",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MicrolemurDev/Blockverse2.git"
+  },
+  "keywords": [
+    "voxel-game",
+    "web-game",
+    "webgl2",
+    "webgl-game"
+  ],
+  "author": "Team Blockverse",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/MicrolemurDev/Blockverse2/issues"
+  },
+  "homepage": "https://github.com/MicrolemurDev/Blockverse2#readme"
+}

@@ -22,7 +22,8 @@ However, all that is needed is a proper `meta.json` in order to load. But for re
 - `author`: A Simple string to give the author of the pack **(REQUIRED!)**
 - `blockdata_location`: If blocks want to be loaded you need to point to a `blocks.js` (see blocks.js Format). **(NEEDED FOR CUSTOM BLOCKS!)**
   - **Tip:** Assume the filesystem location is in the scope of the `meta.json` file location.
-- `initScript`: Use this if you need to evaluate a script on load to add custom hooks to the game engine. (should have a named export `start` to load all required patches)
+- `init_script`: Use this if you need to evaluate a script on load to add custom hooks to the game engine. (should have a named export `start` to load all required patches)
+  - `start()` is also given the modding API object `ModHooks`. Ensure that your script can take the object as it is super helpful and makes new hooks safer and manages the strange data issues that can occur.
   - Be aware however that using custom hooks and modifying engine code is not recommended for compatibility purposes. *Only do this if you need to add new methods/know what you are doing!*
 
 ### blocks.js Format

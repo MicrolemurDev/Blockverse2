@@ -9,23 +9,24 @@ import { Vector3 } from './math/vector.js';
 import { Marsaglia, openSimplexNoise, PerlinNoise, seedHash, noiseSeed, noise, hash } from './math/noise.js';
 
 // Renderer Imports
+import { CanvasRenderer } from './render/canvas/render2d.js';
 import { WebGL2Renderer } from './render/webgl2/gl2render.js';
 
 // Block data Imports
 import { blockData } from '../data/blockverse2/scripts/blocks.js'; // To-do: Use the packdata format over this.
 
 // Shader Data Imports (Remove when dynamic shader loading is ready)
-import { SOURCE as vertexShaderSrc3D } from '../assets/shaders/program0/VERTEX.js';
-import { SOURCE as fragmentShaderSrc3D } from '../assets/shaders/program0/FRAGMENT.js';
+import { SOURCE as vertexShaderSrc3D } from '../data/blockverse2/shaders/program0/VERTEX.js';
+import { SOURCE as fragmentShaderSrc3D } from '../data/blockverse2/shaders/program0/FRAGMENT.js';
 
-import { SOURCE as vertexShaderSrc2D } from '../assets/shaders/program1/VERTEX.js';
-import { SOURCE as fragmentShaderSrc2D } from '../assets/shaders/program1/FRAGMENT.js';
+import { SOURCE as vertexShaderSrc2D } from '../data/blockverse2/shaders/program1/VERTEX.js';
+import { SOURCE as fragmentShaderSrc2D } from '../data/blockverse2/shaders/program1/FRAGMENT.js';
 // ========================================
 // Browser Compatibility Helpers
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 
 // Error Manager
-let isFirstError = true;
+let isFirstError = true; // Mitigation to prevent "Cannot put image" error spam
 window.onerror = function(msg, url, line, col) {
   if (isFirstError) {
     document.body.innerHTML = `<h1>Error</h1>
@@ -39,7 +40,7 @@ window.onerror = function(msg, url, line, col) {
     
     isFirstError = false;
     return false;
-  } // Mitigation
+  }
 }
 
 // Early Checks to ensure the games Core APIs are supported (Not Optional)
@@ -47,6 +48,8 @@ if (!navigator) {
   throw "Navigator API not supported";
 } else if (!AudioContext) {
   throw "WebAudio API not supported";
+} else if (!window.isSecureContext) {
+  throw "Blockverse 2 is in an unsecure context";
 }
 
 // ========================================================
@@ -68,11 +71,15 @@ const quota = document.getElementById("quota");
 const canvas = document.getElementById("overlay");
 const hoverbox = document.getElementById("onhover");
 const contentManager = document.getElementById("content-manager");
-const ctx2D = canvas.getContext("2d");
+
+// Initialize CanvasRenderer (Clean up to native methods later)
+const Render = new CanvasRenderer(canvas);
+const ctx2D = Render.ctx;
 
 ctx2D.canvas.width = window.innerWidth
 ctx2D.canvas.height = window.innerHeight
 
+// Texture Code
 let setPixel, getPixels
 const textures = {
     grassTop: function(n) {
@@ -273,58 +280,6 @@ function random(min, max) {
 }
 
 let caveNoise;
-
-function fill(r, g = r, b = r, a = 1) {
-    ctx2D.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
-function rect(x, y, w, h) {
-    ctx2D.fillRect(x, y, w, h);
-}
-
-function stroke(r, g, b) {
-    if (!g) {
-        g = r
-        b = r
-    }
-
-    ctx2D.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-}
-
-function line(x1, y1, x2, y2) {
-    ctx2D.moveTo(x1, y1)
-    ctx2D.lineTo(x2, y2)
-}
-
-function text(txt = 'NO TEXT DATA GIVEN', x, y, h) {
-    h = h || 0
-
-    const lines = txt.split("\n");
-    const lines_ln = lines.length;
-    for (let i = 0; i < lines_ln; i++) {
-        ctx2D.fillText(lines[i], x, y + h * i)
-    }
-}
-
-function textSize(size = '24') {
-    ctx2D.font = size + 'px Monospace' // Default is monospace
-}
-
-function textAlign(mode = "left") {
-    ctx2D.textAlign = mode;
-}
-
-function strokeWeight(num) {
-    ctx2D.lineWidth = num
-}
-
-const ARROW = "arrow"
-const HAND = "pointer"
-const CROSS = "crosshair"
-
-function cursor(type) {
-    canvas.style.cursor = type
-}
 
 randomSeed(Math.random() * 10000000 | 0);
 
@@ -618,8 +573,8 @@ function play() {
     use3d()
     gl.clearColor(sky[0], sky[1], sky[2], 1.0)
     getPointer()
-    fill(255, 255, 255)
-    textSize(10)
+    Render.fill(255, 255, 255)
+    Render.textSize(10)
     changeScene("play")
 }
 
@@ -2242,7 +2197,8 @@ function hideFace(x, y, z, blocks, type, func, sourceDir, dir) {
     }
     return 0
 }
-let getShadows = {
+
+const getShadows = {
     shade: [1, 0.85, 0.7, 0.6, 0.3],
     ret: [],
     blocks: [],
@@ -3579,25 +3535,25 @@ class Slider {
 
         // Outline
         ctx2D.beginPath()
-        strokeWeight(2)
-        stroke(0)
-        fill(85)
-        ctx2D.rect(this.x - this.w / 2, this.y - this.h / 2, this.w, this.h)
+        Render.strokeWeight(2)
+        Render.stroke(0)
+        Render.fill(85)
+        Render.rect(this.x - this.w / 2, this.y - this.h / 2, this.w, this.h)
         ctx2D.stroke()
         ctx2D.fill()
 
         // Slider bar
         let value = Math.round(settings[this.name])
         ctx2D.beginPath()
-        fill(130)
+        Render.fill(130)
         let x = this.x - (this.w - 10) / 2 + (this.w - 10) * current - 5
         ctx2D.fillRect(x, this.y - this.h / 2, 10, this.h)
 
         //Label
-        fill(255, 255, 255)
-        textSize(16)
-        textAlign('center');
-        text(`${this.label}: ${value}`, this.x, this.y + this.h / 8)
+        Render.fill(255, 255, 255)
+        Render.textSize(16)
+        Render.textAlign('center');
+        Render.text(`${this.label}: ${value}`, this.x, this.y + this.h / 8)
     }
     click() {
         if (!mouseDown || !this.scenes.includes(screen)) {
@@ -3677,34 +3633,36 @@ class Button {
         if (!this.scenes.includes(screen)) {
             return
         }
+      
         let hovering = this.mouseIsOver()
         let disabled = this.disabled()
-        let hoverText = this.hoverText()
+        let hoverText = this.hoverText(); // To-do: Fix GUI Stroke Bug
 
         // Outline
         ctx2D.beginPath()
         if (hovering && !disabled) {
-            strokeWeight(7)
-            stroke(255)
-            cursor(HAND)
+            Render.strokeWeight(7)
+            Render.stroke(255)
+            Render.cursor("pointer")
         } else {
-            strokeWeight(3)
-            stroke(0)
+            Render.strokeWeight(3)
+            Render.stroke(0)
         }
         if (disabled) {
-            fill(60)
+            Render.fill(60)
         } else {
-            fill(120)
+            Render.fill(120)
         }
-        ctx2D.rect(this.x - this.w / 2, this.y - this.h / 2, this.w, this.h)
+      
+        Render.rect(this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);
         ctx2D.stroke()
         ctx2D.fill()
 
         //Label
-        fill(255)
-        textSize(16)
-        textAlign('center');
-        text(this.labels[this.index], this.x, this.y + this.h / 8)
+        Render.fill(255)
+        Render.textSize(16)
+        Render.textAlign('center');
+        Render.text(this.labels[this.index], this.x, this.y + this.h / 8)
 
         if (hovering && hoverText) {
             hoverbox.innerText = hoverText
@@ -3770,7 +3728,7 @@ function initButtons() {
     Button.add(width / 2, height / 2 - 20, 400, 40, "Singleplayer", "main menu", r => changeScene("loadsave menu"))
     Button.add(width / 2, height / 2 + 35, 400, 40, "Multiplayer", "main menu", nothing, always, "Multiplayer isn't ready yet.")
     Button.add(width / 2, height / 2 + 90, 400, 40, "Options", "main menu", r => changeScene("options"))
-    Button.add(width / 2, height / 2 + 145, 400, 40, "Content", "main menu", nothing, always, "Mod Support is still being worked on.")//r => changeScene("content"))
+    Button.add(width / 2, height / 2 + 145, 400, 40, "Content", "main menu", r => changeScene("content"))
   
     // Creation menu buttons
     Button.add(160, 135, 300, 40, ["World Type: Normal", "World Type: Superflat"], "creation menu", r => superflat = r === "World Type: Superflat")
@@ -3891,6 +3849,9 @@ function initButtons() {
     // Options buttons
     Button.add(width / 2, 455, width / 3, 40, "Back", "options", r => changeScene(previousScreen))
 
+    // Content Manager Buttons
+    Button.add((width / 6) + 10, height - 50, width / 3, 40, "Back", "content", r => changeScene(previousScreen));
+  
     // Comingsoon menu buttons
     Button.add(width / 2, 395, width / 3, 40, "Back", "comingsoon menu", r => changeScene(previousScreen))
 
@@ -4092,13 +4053,13 @@ function hud() {
         "FPS: " + analytics.fps
 
     if (p.autoBreak) {
-        text("Super breaker enabled", 5, height - 89, 12)
+        Render.text("Super breaker enabled", 5, height - 89, 12)
     }
 
-    textAlign('right');
-    text(p2.x + ", " + p2.y + ", " + p2.z, width - 10, 15, 0)
-    textAlign('left');
-    text(str, 5, height - 77, 12)
+    Render.textAlign('right');
+    Render.text(p2.x + ", " + p2.y + ", " + p2.z, width - 10, 15, 0)
+    Render.textAlign('left');
+    Render.text(str, 5, height - 77, 12)
 }
 
 function drawInv() {
@@ -4218,7 +4179,7 @@ function mmoved(e) {
 }
 
 function trackMouse(e) {
-    cursor("")
+    Render.cursor("")
     mouseX = e.x
     mouseY = e.y
     drawScreens[screen]()
@@ -4780,38 +4741,52 @@ function initEverything() {
     function title() {
         const w2 = width / 2;
         const font = "VT323,monospace";
-        strokeWeight(1)
-        textAlign('center');
+        Render.strokeWeight(1)
+        Render.textAlign('center');
 
         ctx2D.font = "bold 120px " + font
-        fill(30)
-        text("Blockverse 2", w2, 158)
-        fill(40)
-        text("Blockverse 2", w2, 155)
+        Render.fill(30)
+        Render.text("Blockverse 2", w2, 158)
+        Render.fill(40)
+        Render.text("Blockverse 2", w2, 155)
         ctx2D.font = "bold 121px " + font
-        fill(50)
-        text("Blockverse 2", w2, 152)
-        fill(70)
-        text("Blockverse 2", w2, 150)
-        fill(90)
+        Render.fill(50)
+        Render.text("Blockverse 2", w2, 152)
+        Render.fill(70)
+        Render.text("Blockverse 2", w2, 150)
+        Render.fill(90)
         ctx2D.font = "bold 122px " + font
-        text("Blockverse 2", w2, 148)
-        fill(110)
-        text("Blockverse 2", w2, 145)
+        Render.text("Blockverse 2", w2, 148)
+        Render.fill(110)
+        Render.text("Blockverse 2", w2, 145)
     }
 
+    // Backgrounds
     const clear = () => ctx2D.clearRect(0, 0, canvas.width, canvas.height)
     const dirt = () => ctx2D.putImageData(dirtbg, 0, 0)
 
+    // These are the Draw Screens
     drawScreens["main menu"] = () => {
-        ctx2D.putImageData(dirtbg, 0, 0);
+        dirt();
         title();
-        fill(220);
+        Render.fill(220);
         ctx2D.font = "20px VT323"
-        textAlign('left');
-        text("Blockverse " + version, width - (width - 2), height - 2);
+        Render.textAlign('left');
+        Render.text("Blockverse " + version, width - (width - 2), height - 2);
     }
 
+    drawScreens["content"] = () => {
+      dirt();
+      Render.textAlign('right');
+      Render.textSize(20);
+      Render.fill(255);
+      Render.text("Content Manager", width - 10, 20);
+
+      // Display Content
+      Render.fill(0, 0, 0, 0.25);
+      Render.rect(10, 50, width / 3, height - 150)
+    }
+  
     drawScreens.play = () => {
         controls()
         runGravity()
@@ -4871,26 +4846,26 @@ function initEverything() {
 
         let progress = Math.round(100 * sub / maxLoad)
         dirt()
-        fill(255)
-        textSize(30)
-        textAlign('center');
-        text(`Loading... (${progress}%)`, width / 2, height / 2)
+        Render.fill(255)
+        Render.textSize(30)
+        Render.textAlign('center');
+        Render.text(`Loading... (${progress}%)`, width / 2, height / 2)
     }
 
     drawScreens.inventory = drawInv
 
     drawScreens.pause = () => {
-        strokeWeight(1)
+        Render.strokeWeight(1)
         clear()
         ctx2D.drawImage(gl.canvas, 0, 0)
 
-        fill(0, 0, 0, 0.5);
-        rect(0, 0, canvas.width, canvas.height)
-        textSize(60)
-        fill(0, 0, 0)
-        textAlign('center');
-        fill(255);
-        text("Paused", width / 2, 60)
+        Render.fill(0, 0, 0, 0.5);
+        Render.rect(0, 0, canvas.width, canvas.height)
+        Render.textSize(60)
+        Render.fill(0, 0, 0)
+        Render.textAlign('center');
+        Render.fill(255);
+        Render.text("Paused", width / 2, 60)
     }
 
     drawScreens.options = () => {
@@ -4899,18 +4874,18 @@ function initEverything() {
 
     drawScreens["creation menu"] = () => {
         dirt()
-        textAlign('right');
-        textSize(20)
-        fill(255)
-        text("World Creator", width - 10, 20)
+        Render.textAlign('right');
+        Render.textSize(20)
+        Render.fill(255)
+        Render.text("World Creator", width - 10, 20)
     }
 
     drawScreens["loadsave menu"] = () => {
         dirt()
-        textAlign('center');
-        textSize(20)
-        fill(255)
-        text("Select World", width / 2, 20)
+        Render.textAlign('center');
+        Render.textSize(20)
+        Render.fill(255)
+        Render.text("Select World", width / 2, 20)
     }
 
     drawScreens.editworld = dirt
