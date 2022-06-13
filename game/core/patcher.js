@@ -14,13 +14,21 @@ const parse = JSON.parse;
 const prefix_loc = '../../data/'; // Change me if minified
 let mods = [];
 
+// Data to be Sent to the Engine (Loaded via patches)
+let blockData = []; // Block Data
+let textureData = []; // Texture Atlas Data (3D)
+let imageData = []; // Images (2D) (To-do: Merge into textureData)
+
 // Mod Hooks
 class ModHooks {
-  
+  version = version; // Hand out exact engine version
 }
 
 // Mod Utilities
-class ModUtils {
+class ModUtils {  
+  static blocks = blockData;
+  static textures = textureData;
+  static images = imageData;
   static parsePack(path) {
     let rawF; // Raw File Data
 
@@ -56,7 +64,7 @@ class ModUtils {
     } // Formatted Data
 
     // Validation
-    if (STRICT_MOD_MODE && pack.version != pack.engine_version) {
+    if (STRICT_MOD_MODE && pack.version != 'all' && pack.version != pack.engine_version) {
       console.error(`Could not load pack ${pack.name} due to an incompatible engine version.`);
       return null;
     }
@@ -83,7 +91,6 @@ class ModUtils {
     }
 
     if (exec !== undefined) {
-      // To-do: Expose a modding API
       const { start } = await import(`${e}${pack.exec}`);
       if (start == undefined) {
         console.warn('An exec script was defined but could not be loaded! (INVALID PATH/UNDEFINED)');
@@ -107,6 +114,12 @@ class ModUtils {
       return true; // We use this as a success statement (code 1)
     }
   }
+
+  addImage(source) {
+    let i = new Image(source);
+
+    imageData.push(i);
+  } // Simple enough!
 }
 
 // Exports

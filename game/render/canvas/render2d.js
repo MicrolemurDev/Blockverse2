@@ -45,6 +45,10 @@ class CanvasRenderer {
     this.ctx.lineTo(x2, y2);
   }
 
+  image(img, x, y) {
+    this.ctx.drawImage(img, x, y);
+  } // No height yet...
+  
   text(txt = 'Placeholder', x, y, h = 0) {
     const lines = txt.split("\n");
     const lines_ln = lines.length;
@@ -54,7 +58,7 @@ class CanvasRenderer {
   }
 
   textSize(size = 24) {
-    this.ctx.font = size + 'px Monospace'; // We default to monospace font
+    this.ctx.font = size + 'px Monospace'; // We default to monospace font (To-do: FIX ME LATER)
   } 
 
   textAlign(mode = "left") {

@@ -3,6 +3,7 @@ A Fork of MineKhan aimed at removing legacy features and improving the game to m
 **Notice:** *The textures used are still from Minecraft and only the code + shaders is MIT License!*
 ## Server Requirements
 - NodeJS 16+
+- Modern-ish Hardware
 ## Client Requirements
 - WebGL 2 Support
 - EMCA 2020 Support (ES6/ES7 may be possible with Babel)

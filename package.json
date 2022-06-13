@@ -21,5 +21,8 @@
   "bugs": {
     "url": "https://github.com/MicrolemurDev/Blockverse2/issues"
   },
-  "homepage": "https://github.com/MicrolemurDev/Blockverse2#readme"
+  "homepage": "https://github.com/MicrolemurDev/Blockverse2#readme",
+  "dependencies": {
+    "ws": "^8.7.0"
+  }
 }

@@ -1,6 +1,7 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const http = require('http'); // HTTP Protocall. To-do: Add HTTPS Support to the server
+const fs = require('fs'); // Filesystem Utils
+const path = require('path'); // File Path Utils
+const ws = require('ws'); // Web Socket Support
 
 // Server Config
 const PORT = 80;
